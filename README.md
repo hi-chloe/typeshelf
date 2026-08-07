@@ -1,4 +1,4 @@
-﻿# Font Explorer
+# Font Explorer
 
 Phase 1: client-side font viewer for browsing and previewing local fonts.
 
