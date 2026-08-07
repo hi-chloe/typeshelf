@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import { FontFamilyListItem } from "./FontFamilyListItem";
 import { FontUploadZone } from "./FontUploadZone";
@@ -42,25 +42,25 @@ function CategorySection({
           aria-expanded={open}
         >
           <span className="truncate">
-            {section.kind === "favorites" ? "Γÿà " : ""}
+            {section.kind === "favorites" ? "★ " : ""}
             {section.label}{" "}
             <span className="font-normal normal-case tracking-normal">
               ({section.families.length})
             </span>
           </span>
           <span aria-hidden className="shrink-0 text-[10px]">
-            {open ? "Γû╛" : "Γû╕"}
+            {open ? "▾" : "▸"}
           </span>
         </button>
         {section.kind === "custom" ? (
           <button
             type="button"
-            title={`Delete category ΓÇ£${section.label}ΓÇ¥`}
+            title={`Delete category “${section.label}”`}
             aria-label={`Delete category ${section.label}`}
             onClick={() => deleteCategory(section.label)}
             className="shrink-0 px-1 text-[10px] text-[var(--ink-muted)] hover:text-[var(--warn)]"
           >
-            ├ù
+            ×
           </button>
         ) : null}
       </div>
@@ -123,7 +123,7 @@ export function FontLibrarySidebar() {
     const ok = createCategory(newCategoryName);
     if (!ok) {
       setCategoryError(
-        "Use a unique name that isnΓÇÖt Favorites or a built-in category.",
+        "Use a unique name that isn’t Favorites or a built-in category.",
       );
       return;
     }
@@ -155,7 +155,7 @@ export function FontLibrarySidebar() {
             type="search"
             value={state.searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Search fonts or categoriesΓÇª"
+            placeholder="Search fonts or categories…"
             className="w-full rounded-md border border-[var(--border)] bg-[var(--preview-bg)] px-2.5 py-1.5 text-sm text-[var(--ink)] outline-none placeholder:text-[var(--ink-muted)] focus:border-[var(--accent)]"
           />
         </label>
@@ -222,38 +222,40 @@ export function FontLibrarySidebar() {
         )}
       </div>
 
-      {state.warnings.length > 0 ? (
-        <div className="space-y-1.5 rounded-md border border-[var(--warn-border)] bg-[var(--warn-soft)] p-2">
-          <div className="flex items-center justify-between gap-2">
-            <p className="text-xs font-medium text-[var(--warn)]">Warnings</p>
-            <button
-              type="button"
-              onClick={clearWarnings}
-              className="text-[10px] text-[var(--warn)] underline-offset-2 hover:underline"
-            >
-              Clear
-            </button>
-          </div>
-          <ul className="max-h-28 space-y-1 overflow-y-auto">
-            {state.warnings.map((w) => (
-              <li
-                key={w.id}
-                className="flex items-start justify-between gap-2 text-xs text-[var(--warn)]"
+      <div aria-live="polite" aria-atomic="true">
+        {state.warnings.length > 0 ? (
+          <div className="space-y-1.5 rounded-md border border-[var(--warn-border)] bg-[var(--warn-soft)] p-2">
+            <div className="flex items-center justify-between gap-2">
+              <p className="text-xs font-medium text-[var(--warn)]">Warnings</p>
+              <button
+                type="button"
+                onClick={clearWarnings}
+                className="text-[10px] text-[var(--warn)] underline-offset-2 hover:underline"
               >
-                <span className="min-w-0 flex-1 break-words">{w.message}</span>
-                <button
-                  type="button"
-                  aria-label="Dismiss warning"
-                  onClick={() => dismissWarning(w.id)}
-                  className="shrink-0 opacity-70 hover:opacity-100"
+                Clear
+              </button>
+            </div>
+            <ul className="max-h-28 space-y-1 overflow-y-auto">
+              {state.warnings.map((w) => (
+                <li
+                  key={w.id}
+                  className="flex items-start justify-between gap-2 text-xs text-[var(--warn)]"
                 >
-                  ├ù
-                </button>
-              </li>
-            ))}
-          </ul>
-        </div>
-      ) : null}
+                  <span className="min-w-0 flex-1 break-words">{w.message}</span>
+                  <button
+                    type="button"
+                    aria-label="Dismiss warning"
+                    onClick={() => dismissWarning(w.id)}
+                    className="shrink-0 opacity-70 hover:opacity-100"
+                  >
+                    ×
+                  </button>
+                </li>
+              ))}
+            </ul>
+          </div>
+        ) : null}
+      </div>
 
       <div data-font-list className="min-h-0 flex-1 overflow-y-auto pr-1">
         {!hasFonts ? (
@@ -262,7 +264,7 @@ export function FontLibrarySidebar() {
           </p>
         ) : visibleSections.length === 0 ? (
           <p className="px-1 py-6 text-center text-sm text-[var(--ink-muted)]">
-            No fonts match ΓÇ£{state.searchQuery.trim()}ΓÇ¥.
+            No fonts match “{state.searchQuery.trim()}”.
           </p>
         ) : (
           visibleSections.map((section) => (
@@ -285,10 +287,10 @@ export function FontLibrarySidebar() {
         <p className="text-[10px] text-[var(--ink-muted)]">
           {state.fonts.length} face{state.fonts.length === 1 ? "" : "s"} loaded
           {state.favorites.length > 0
-            ? ` ┬╖ ${state.favorites.length} favorite${state.favorites.length === 1 ? "" : "s"}`
+            ? ` · ${state.favorites.length} favorite${state.favorites.length === 1 ? "" : "s"}`
             : ""}
           {state.customCategories.length > 0
-            ? ` ┬╖ ${state.customCategories.length} custom`
+            ? ` · ${state.customCategories.length} custom`
             : ""}
         </p>
       ) : null}

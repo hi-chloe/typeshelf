@@ -1,4 +1,4 @@
-﻿import { parse as parseOpenType } from "opentype.js";
+import { parse as parseOpenType } from "opentype.js";
 import { readLiteFaceMeta, type LiteFaceMeta } from "./sfntMeta";
 import type { FontEntry, FontSource } from "./types";
 import {
@@ -10,7 +10,7 @@ import {
 } from "./ttc";
 import { decompressWoff2ToSfnt } from "./woff2";
 
-/** Cap resident FontFaces ΓÇö enough for a sidebar viewport + active preview. */
+/** Cap resident FontFaces — enough for a sidebar viewport + active preview. */
 const MAX_RESIDENT_FACES = 28;
 
 type ResidentFace = {
@@ -120,7 +120,7 @@ async function registerFontFace(
     lastError = err;
   }
 
-  // Last resort only ΓÇö opentype materializes glyphs and is expensive.
+  // Last resort only — opentype materializes glyphs and is expensive.
   try {
     const font = parseOpenType(buffer);
     const rebuilt = font.toArrayBuffer();
@@ -219,7 +219,7 @@ async function parseSfntMetadata(
   const looksLikeWoff =
     fileLabel.toLowerCase().endsWith(".woff") || isWoffSignature(buffer);
 
-  // WOFF2 tables are Brotli-compressed ΓÇö decompress to SFNT, then reuse the
+  // WOFF2 tables are Brotli-compressed — decompress to SFNT, then reuse the
   // same lite OS/2/post/name reader as TTF/OTF. FontFace still uses original bytes.
   if (looksLikeWoff2) {
     try {
@@ -236,7 +236,7 @@ async function parseSfntMetadata(
   try {
     return { meta: readLiteFaceMeta(buffer) };
   } catch (err) {
-    // WOFF needs table decompression ΓÇö fall back to opentype for single uploads.
+    // WOFF needs table decompression — fall back to opentype for single uploads.
     if (looksLikeWoff) {
       try {
         const font = parseOpenType(buffer);
@@ -417,6 +417,10 @@ export async function parseFontFile(file: File): Promise<ParsedFontResult[]> {
 
 const ACCEPTED_EXTENSIONS = [".ttf", ".otf", ".woff", ".woff2", ".ttc"];
 
+/** Caps for the upload path only — applied in parseFontFiles before parsing. */
+export const MAX_UPLOAD_FILE_BYTES = 20 * 1024 * 1024; // 20MB
+export const MAX_UPLOAD_BATCH_COUNT = 200;
+
 export function isAcceptedFontFile(file: File): boolean {
   const name = file.name.toLowerCase();
   return ACCEPTED_EXTENSIONS.some((ext) => name.endsWith(ext));
@@ -442,13 +446,33 @@ function yieldToMain(): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, 0));
 }
 
+function formatMegabytes(bytes: number): string {
+  return `${(bytes / (1024 * 1024)).toFixed(bytes >= 10 * 1024 * 1024 ? 0 : 1)}MB`;
+}
+
 export async function parseFontFiles(files: File[]): Promise<BatchParseResult> {
   const fonts: FontEntry[] = [];
   const warnings: string[] = [];
 
-  for (const file of files) {
+  let batch = files;
+  if (files.length > MAX_UPLOAD_BATCH_COUNT) {
+    const skipped = files.length - MAX_UPLOAD_BATCH_COUNT;
+    warnings.push(
+      `Skipped ${skipped} file${skipped === 1 ? "" : "s"}: batch limited to ${MAX_UPLOAD_BATCH_COUNT} files at a time.`,
+    );
+    batch = files.slice(0, MAX_UPLOAD_BATCH_COUNT);
+  }
+
+  for (const file of batch) {
     if (!isAcceptedFontFile(file)) {
       warnings.push(`Skipped "${file.name}": unsupported file type.`);
+      continue;
+    }
+
+    if (file.size > MAX_UPLOAD_FILE_BYTES) {
+      warnings.push(
+        `Skipped "${file.name}": file is ${formatMegabytes(file.size)} (limit ${formatMegabytes(MAX_UPLOAD_FILE_BYTES)}).`,
+      );
       continue;
     }
 

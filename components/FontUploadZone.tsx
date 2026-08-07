@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import { useCallback, useRef, useState, type DragEvent } from "react";
 import { useFontLibrary } from "@/lib/FontLibraryContext";
@@ -80,10 +80,10 @@ export function FontUploadZone() {
         }}
       />
       <p className="text-sm font-medium text-[var(--ink)]">
-        {state.isLoading ? "Parsing fontsΓÇª" : "Drop font files here"}
+        {state.isLoading ? "Parsing fonts…" : "Drop font files here"}
       </p>
       <p className="mt-1 text-xs text-[var(--ink-muted)]">
-        or click to browse ┬╖ TTF, OTF, WOFF, WOFF2, TTC
+        or click to browse · TTF, OTF, WOFF, WOFF2, TTC · max 20MB · 200/batch
       </p>
     </div>
   );

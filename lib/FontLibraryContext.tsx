@@ -1,14 +1,21 @@
-﻿"use client";
+"use client";
 
 import {
   createContext,
   useCallback,
   useContext,
+  useEffect,
   useMemo,
   useReducer,
+  useState,
   type ReactNode,
 } from "react";
 import { classifyFont } from "./classifyFont";
+import {
+  loadLibraryPreferences,
+  saveLibraryPreferences,
+  type LibraryPreferences,
+} from "./libraryPersistence";
 import type { BuiltinCategory, FontEntry, ParseWarning } from "./types";
 import { BUILTIN_CATEGORIES, FAVORITES_SECTION } from "./types";
 
@@ -60,7 +67,8 @@ type Action =
   | { type: "CREATE_CATEGORY"; name: string }
   | { type: "DELETE_CATEGORY"; name: string }
   | { type: "SET_FAMILY_CATEGORY"; family: string; category: string | null }
-  | { type: "SET_SEARCH_QUERY"; query: string };
+  | { type: "SET_SEARCH_QUERY"; query: string }
+  | { type: "HYDRATE_PREFS"; prefs: LibraryPreferences };
 
 function fontKey(family: string, style: string): string {
   return `${family.trim().toLowerCase()}::${style.trim().toLowerCase()}`;
@@ -231,6 +239,13 @@ function reducer(state: LibraryState, action: Action): LibraryState {
     }
     case "SET_SEARCH_QUERY":
       return { ...state, searchQuery: action.query };
+    case "HYDRATE_PREFS":
+      return {
+        ...state,
+        favorites: action.prefs.favorites,
+        customCategories: action.prefs.customCategories,
+        categoryOverrides: action.prefs.categoryOverrides,
+      };
     default:
       return state;
   }
@@ -295,6 +310,27 @@ function matchesSearch(
 
 export function FontLibraryProvider({ children }: { children: ReactNode }) {
   const [state, dispatch] = useReducer(reducer, initialState);
+  const [prefsHydrated, setPrefsHydrated] = useState(false);
+
+  // Hydrate after mount so SSR HTML matches the first client paint.
+  useEffect(() => {
+    dispatch({ type: "HYDRATE_PREFS", prefs: loadLibraryPreferences() });
+    setPrefsHydrated(true);
+  }, []);
+
+  useEffect(() => {
+    if (!prefsHydrated) return;
+    saveLibraryPreferences({
+      favorites: state.favorites,
+      customCategories: state.customCategories,
+      categoryOverrides: state.categoryOverrides,
+    });
+  }, [
+    prefsHydrated,
+    state.favorites,
+    state.customCategories,
+    state.categoryOverrides,
+  ]);
 
   const familiesByName = useMemo(() => {
     const byFamily = new Map<string, FontEntry[]>();

@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import { useCallback, useEffect, useState } from "react";
 import { useFontLibrary } from "@/lib/FontLibraryContext";
@@ -26,7 +26,7 @@ export function SystemFontBanner() {
       const { fonts, warnings } = await parseLocalSystemFonts(
         localFonts,
         (progress) => {
-          // Throttle React updates ΓÇö every face would be too chatty.
+          // Throttle React updates — every face would be too chatty.
           if (
             progress.done === 0 ||
             progress.done === progress.total ||
@@ -57,9 +57,9 @@ export function SystemFontBanner() {
   const progress = state.loadProgress;
   const progressLabel =
     state.isLoading && progress && progress.total > 0
-      ? `Cataloging ${progress.done}/${progress.total}ΓÇª`
+      ? `Cataloging ${progress.done}/${progress.total}…`
       : state.isLoading
-        ? "Reading installed fontsΓÇª"
+        ? "Reading installed fonts…"
         : null;
 
   return (
@@ -76,10 +76,14 @@ export function SystemFontBanner() {
             Load my installed fonts
           </button>
         </p>
-        {progressLabel ? (
-          <p className="mt-1 text-[var(--ink-muted)]">{progressLabel}</p>
-        ) : null}
-        {error ? <p className="mt-1 text-[var(--warn)]">{error}</p> : null}
+        <div aria-live="polite" aria-atomic="true">
+          {progressLabel ? (
+            <p className="mt-1 text-[var(--ink-muted)]">{progressLabel}</p>
+          ) : null}
+        </div>
+        <div aria-live="assertive" aria-atomic="true">
+          {error ? <p className="mt-1 text-[var(--warn)]">{error}</p> : null}
+        </div>
       </div>
       <button
         type="button"
