@@ -1,14 +1,11 @@
-﻿import type { Metadata } from "next";
-
-export const metadata: Metadata = {
-  title: "Font Explorer",
-  description: "Browse and preview local fonts",
-};
+import { FontLibrarySidebar } from "@/components/FontLibrarySidebar";
+import { PreviewPane } from "@/components/PreviewPane";
 
 export default function Home() {
   return (
-    <main className="flex min-h-screen items-center justify-center p-8">
-      <h1 className="text-3xl font-semibold tracking-tight">Font Explorer</h1>
-    </main>
+    <div className="flex min-h-screen flex-col md:h-screen md:flex-row md:overflow-hidden">
+      <FontLibrarySidebar />
+      <PreviewPane />
+    </div>
   );
 }
