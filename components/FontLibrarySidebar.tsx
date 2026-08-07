@@ -58,7 +58,7 @@ function CategorySection({
             title={`Delete category “${section.label}”`}
             aria-label={`Delete category ${section.label}`}
             onClick={() => deleteCategory(section.label)}
-            className="shrink-0 px-1 text-[10px] text-[var(--ink-muted)] hover:text-[var(--warn)]"
+            className="shrink-0 px-1 text-[10px] text-[var(--ink-muted)] hover:text-[var(--warn-strong)]"
           >
             ×
           </button>
@@ -138,7 +138,7 @@ export function FontLibrarySidebar() {
     <aside className="flex h-full min-h-0 w-full flex-col gap-3 border-r border-[var(--border)] bg-[var(--surface)] p-4 md:w-72 md:shrink-0 lg:w-80">
       <div>
         <h1 className="font-[family-name:var(--font-display)] text-xl tracking-tight text-[var(--ink)]">
-          Font Explorer
+          Typeshelf
         </h1>
         <p className="mt-0.5 text-xs text-[var(--ink-muted)]">
           Browse and preview local fonts
@@ -167,7 +167,7 @@ export function FontLibrarySidebar() {
               setNewCategoryOpen(true);
               setCategoryError(null);
             }}
-            className="w-full rounded-md border border-dashed border-[var(--border)] px-2 py-1.5 text-xs font-medium text-[var(--ink-muted)] transition-colors hover:border-[var(--accent)] hover:text-[var(--accent)]"
+            className="w-full rounded-md border border-dashed border-[var(--border)] px-2 py-1.5 text-xs font-medium text-[var(--ink-muted)] transition-colors hover:border-[var(--accent)] hover:text-[var(--accent-strong)]"
           >
             + New category
           </button>
@@ -196,13 +196,13 @@ export function FontLibrarySidebar() {
               className="w-full rounded border border-[var(--border)] bg-[var(--surface)] px-2 py-1 text-sm text-[var(--ink)] outline-none focus:border-[var(--accent)]"
             />
             {categoryError ? (
-              <p className="text-[10px] text-[var(--warn)]">{categoryError}</p>
+              <p className="text-[10px] text-[var(--warn-strong)]">{categoryError}</p>
             ) : null}
             <div className="flex gap-1.5">
               <button
                 type="button"
                 onClick={submitNewCategory}
-                className="rounded bg-[var(--accent)] px-2 py-1 text-xs font-medium text-white"
+                className="rounded bg-[var(--accent-strong)] px-2 py-1 text-xs font-medium text-white"
               >
                 Create
               </button>
@@ -226,11 +226,13 @@ export function FontLibrarySidebar() {
         {state.warnings.length > 0 ? (
           <div className="space-y-1.5 rounded-md border border-[var(--warn-border)] bg-[var(--warn-soft)] p-2">
             <div className="flex items-center justify-between gap-2">
-              <p className="text-xs font-medium text-[var(--warn)]">Warnings</p>
+              <p className="text-xs font-medium text-[var(--warn-strong)]">
+                Warnings
+              </p>
               <button
                 type="button"
                 onClick={clearWarnings}
-                className="text-[10px] text-[var(--warn)] underline-offset-2 hover:underline"
+                className="text-[10px] text-[var(--warn-strong)] underline-offset-2 hover:underline"
               >
                 Clear
               </button>
@@ -239,14 +241,14 @@ export function FontLibrarySidebar() {
               {state.warnings.map((w) => (
                 <li
                   key={w.id}
-                  className="flex items-start justify-between gap-2 text-xs text-[var(--warn)]"
+                  className="flex items-start justify-between gap-2 text-xs text-[var(--warn-strong)]"
                 >
                   <span className="min-w-0 flex-1 break-words">{w.message}</span>
                   <button
                     type="button"
                     aria-label="Dismiss warning"
                     onClick={() => dismissWarning(w.id)}
-                    className="shrink-0 opacity-70 hover:opacity-100"
+                    className="shrink-0 text-[var(--ink-muted)] hover:text-[var(--warn-strong)]"
                   >
                     ×
                   </button>

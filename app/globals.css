@@ -1,19 +1,23 @@
 @import "tailwindcss";
 
 :root {
-  --background: #e8e4dc;
-  --foreground: #1c1916;
-  --ink: #1c1916;
-  --ink-muted: #6b645b;
-  --surface: #f7f4ee;
-  --surface-muted: #efebe3;
-  --preview-bg: #fbf9f5;
-  --border: #d4cfc4;
-  --accent: #0f5c4c;
-  --accent-soft: #d7ebe4;
-  --warn: #8a4b16;
-  --warn-soft: #f5e6d4;
-  --warn-border: #e0c49a;
+  --background: #fdfcfa;
+  --foreground: #2b2622; /* = --ink */
+  --ink: #2b2622;
+  --ink-muted: #6f655e;
+  /* Quiet icon-only chrome at full opacity (clears 3:1). Don't fade text/icons with opacity. */
+  --ink-faint: #8c8179;
+  --surface: #f7f1ec;
+  --surface-muted: #f5efe9;
+  --preview-bg: #fffefd;
+  --border: #e3ddd6;
+  --accent: #d9614f; /* decorative only — not for text */
+  --accent-strong: #b85243; /* accent-colored text + white-text button fills */
+  --accent-soft: #f3d9d4;
+  --warn: #c98a2c; /* decorative only — not for text */
+  --warn-strong: #966721; /* warning/error text */
+  --warn-soft: #f6ead6;
+  --warn-border: #e8cf9f;
 }
 
 @theme inline {

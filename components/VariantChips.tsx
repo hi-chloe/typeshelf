@@ -23,7 +23,7 @@ export function VariantChips() {
               className={[
                 "rounded-md border px-2.5 py-1 text-sm transition-colors",
                 active
-                  ? "border-[var(--accent)] bg-[var(--accent-soft)] text-[var(--accent)]"
+                  ? "border-[var(--accent)] bg-[var(--accent-soft)] text-[var(--accent-strong)]"
                   : "border-[var(--border)] bg-[var(--surface)] text-[var(--ink)] hover:border-[var(--ink-muted)]",
               ].join(" ")}
             >

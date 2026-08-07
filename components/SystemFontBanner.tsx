@@ -71,7 +71,7 @@ export function SystemFontBanner() {
             type="button"
             onClick={() => void loadSystemFonts()}
             disabled={state.isLoading}
-            className="font-medium text-[var(--accent)] underline-offset-2 hover:underline disabled:opacity-50"
+            className="font-medium text-[var(--accent-strong)] underline-offset-2 hover:underline disabled:opacity-50"
           >
             Load my installed fonts
           </button>
@@ -82,7 +82,9 @@ export function SystemFontBanner() {
           ) : null}
         </div>
         <div aria-live="assertive" aria-atomic="true">
-          {error ? <p className="mt-1 text-[var(--warn)]">{error}</p> : null}
+          {error ? (
+            <p className="mt-1 text-[var(--warn-strong)]">{error}</p>
+          ) : null}
         </div>
       </div>
       <button

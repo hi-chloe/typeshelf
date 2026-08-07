@@ -133,7 +133,7 @@ export function PreviewPane() {
 
           <div className="relative min-h-[200px] flex-1 overflow-auto rounded-xl border border-[var(--border)] bg-[var(--preview-bg)] p-6 shadow-[inset_0_1px_0_rgba(255,255,255,0.4)]">
             {faceError ? (
-              <p className="text-sm text-[var(--warn)]">{faceError}</p>
+              <p className="text-sm text-[var(--warn-strong)]">{faceError}</p>
             ) : !faceReady ? (
               <p className="text-sm text-[var(--ink-muted)]">Loading face…</p>
             ) : (

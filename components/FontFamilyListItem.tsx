@@ -101,9 +101,10 @@ export function FontFamilyListItem({
         }}
         className={[
           "shrink-0 px-1.5 py-1.5 text-sm leading-none transition-colors",
+          // Prefer a quieter solid token over opacity — opacity sinks icon contrast below 3:1.
           isFavorite
-            ? "text-[var(--accent)]"
-            : "text-[var(--ink-muted)] opacity-40 hover:opacity-100",
+            ? "text-[var(--accent-strong)]"
+            : "text-[var(--ink-faint)] hover:text-[var(--ink)]",
         ].join(" ")}
       >
         {isFavorite ? "★" : "☆"}
@@ -116,7 +117,7 @@ export function FontFamilyListItem({
         className={[
           "min-w-0 flex-1 truncate py-1.5 pr-1 text-left text-[15px] leading-snug",
           active
-            ? "font-medium text-[var(--accent)]"
+            ? "font-medium text-[var(--accent-strong)]"
             : "text-[var(--ink)]",
         ].join(" ")}
         style={

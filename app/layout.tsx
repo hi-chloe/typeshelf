@@ -1,21 +1,24 @@
 import { Providers } from "@/components/Providers";
 import type { Metadata } from "next";
-import { Fraunces, Source_Sans_3 } from "next/font/google";
+import { Schibsted_Grotesk, Young_Serif } from "next/font/google";
 import "./globals.css";
 
-const display = Fraunces({
+const display = Young_Serif({
+  // Young Serif only ships as a single static weight (400) — no variable
+  // axis, so next/font/google requires this explicitly.
+  weight: "400",
   variable: "--font-display",
   subsets: ["latin"],
 });
 
-const sans = Source_Sans_3({
+const sans = Schibsted_Grotesk({
   variable: "--font-ui",
   subsets: ["latin"],
 });
 
 export const metadata: Metadata = {
-  title: "Font Explorer",
-  description: "Browse and preview local fonts in the browser",
+  title: "Typeshelf",
+  description: "Browse and preview local fonts on your shelf",
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
