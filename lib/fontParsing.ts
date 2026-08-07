@@ -1,4 +1,4 @@
-import { parse as parseOpenType } from "opentype.js";
+﻿import { parse as parseOpenType } from "opentype.js";
 import { readLiteFaceMeta, type LiteFaceMeta } from "./sfntMeta";
 import type { FontEntry, FontSource } from "./types";
 import {
@@ -8,6 +8,7 @@ import {
   isTtcSignature,
   type FaceMatchHint,
 } from "./ttc";
+import { decompressWoff2ToSfnt } from "./woff2";
 
 /** Cap resident FontFaces ΓÇö enough for a sidebar viewport + active preview. */
 const MAX_RESIDENT_FACES = 28;
@@ -218,13 +219,18 @@ async function parseSfntMetadata(
   const looksLikeWoff =
     fileLabel.toLowerCase().endsWith(".woff") || isWoffSignature(buffer);
 
-  // opentype.js / lite sfnt readers cannot unpack WOFF2 Brotli tables yet.
-  // Preview still works via FontFace; catalog metadata falls back to the filename.
+  // WOFF2 tables are Brotli-compressed ΓÇö decompress to SFNT, then reuse the
+  // same lite OS/2/post/name reader as TTF/OTF. FontFace still uses original bytes.
   if (looksLikeWoff2) {
-    return {
-      meta: filenameGuessMeta(fileLabel),
-      warning: `WOFF2 metadata is limited for "${fileLabel}" (opentype.js needs an external decompressor). Preview uses the file; family/style are inferred from the filename.`,
-    };
+    try {
+      const sfnt = await decompressWoff2ToSfnt(buffer);
+      return { meta: readLiteFaceMeta(sfnt) };
+    } catch {
+      return {
+        meta: filenameGuessMeta(fileLabel),
+        warning: `WOFF2 metadata is limited for "${fileLabel}" (decompression failed). Preview uses the file; family/style are inferred from the filename.`,
+      };
+    }
   }
 
   try {
