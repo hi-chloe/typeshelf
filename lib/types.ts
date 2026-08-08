@@ -1,4 +1,5 @@
-export type FontSource = "upload" | "system";
+/** "sample" = bundled OFL demo faces loaded from /public/sample-fonts. */
+export type FontSource = "upload" | "system" | "sample";
 
 /** Built-in auto-classification buckets. */
 export type BuiltinCategory =
