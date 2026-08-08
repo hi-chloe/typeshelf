@@ -163,8 +163,8 @@ export function PreviewPane() {
         </div>
       ) : (
         <>
-          <header className="flex flex-wrap items-end justify-between gap-3">
-            <div>
+          <header className="flex flex-wrap items-end justify-between gap-x-6 gap-y-3">
+            <div className="min-w-0 flex-1 basis-[12rem]">
               <p className="text-xs uppercase tracking-wide text-[var(--ink-muted)]">
                 Preview
               </p>
@@ -178,6 +178,13 @@ export function PreviewPane() {
                 <span className="mx-1.5 text-[var(--border)]">·</span>
                 {selectedFont.source}
               </p>
+            </div>
+            {/*
+              Full-width basis on small screens so chips drop under the identity
+              block; on md+ they sit as a constrained column on the right.
+            */}
+            <div className="min-w-0 basis-full md:basis-auto md:max-w-md">
+              <VariantChips />
             </div>
           </header>
 
@@ -288,8 +295,6 @@ export function PreviewPane() {
               </p>
             )}
           </div>
-
-          <VariantChips />
         </>
       )}
     </main>
