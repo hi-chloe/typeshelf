@@ -38,7 +38,7 @@ export const DEFAULT_CUSTOM_SEED = "#4f7fd4";
 
 export const DEFAULT_THEME: ThemePreferences = {
   scheme: "ember",
-  mode: "system",
+  mode: "light",
   customSeed: DEFAULT_CUSTOM_SEED,
 };
 
@@ -141,7 +141,7 @@ export function getThemeBootScript(storageKeys: readonly string[]): string {
 
   return `(function(){try{
 var schemes=${schemes},modes=${modes},keys=${keys};
-var scheme="ember",modePref="system",cache=null;
+var scheme="ember",modePref="light",cache=null;
 for(var i=0;i<keys.length;i++){
   var raw=localStorage.getItem(keys[i]);
   if(!raw)continue;

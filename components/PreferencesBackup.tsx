@@ -5,6 +5,7 @@ import {
   parsePreferencesImport,
   stringifyPreferencesExport,
 } from "@/lib/libraryPersistence";
+import { SidebarSection } from "./SidebarSection";
 import { useId, useRef, useState } from "react";
 
 export function PreferencesBackup() {
@@ -58,49 +59,48 @@ export function PreferencesBackup() {
   };
 
   return (
-    <div className="space-y-1.5">
-      <p className="text-[10px] font-semibold uppercase tracking-wide text-[var(--ink-muted)]">
-        Settings
-      </p>
-      <div className="grid grid-cols-2 gap-1">
-        <button
-          type="button"
-          onClick={onExport}
-          className={[
-            "min-h-6 rounded-md border border-[var(--border)] bg-[var(--preview-bg)] px-1.5 py-1 text-[11px] font-medium text-[var(--ink-muted)] outline-none",
-            "hover:text-[var(--ink)] focus-visible:ring-2 focus-visible:ring-[var(--ink)] focus-visible:ring-offset-1 focus-visible:ring-offset-[var(--surface)]",
-          ].join(" ")}
+    <SidebarSection label="Settings">
+      <div className="space-y-1.5">
+        <div className="grid grid-cols-2 gap-1">
+          <button
+            type="button"
+            onClick={onExport}
+            className={[
+              "min-h-6 rounded-md border border-[var(--border)] bg-[var(--preview-bg)] px-1.5 py-1 text-[11px] font-medium text-[var(--ink-muted)] outline-none",
+              "hover:text-[var(--ink)] focus-visible:ring-2 focus-visible:ring-[var(--ink)] focus-visible:ring-offset-1 focus-visible:ring-offset-[var(--surface)]",
+            ].join(" ")}
+          >
+            Export settings
+          </button>
+          <button
+            type="button"
+            onClick={onPickImport}
+            className={[
+              "min-h-6 rounded-md border border-[var(--border)] bg-[var(--preview-bg)] px-1.5 py-1 text-[11px] font-medium text-[var(--ink-muted)] outline-none",
+              "hover:text-[var(--ink)] focus-visible:ring-2 focus-visible:ring-[var(--ink)] focus-visible:ring-offset-1 focus-visible:ring-offset-[var(--surface)]",
+            ].join(" ")}
+          >
+            Import settings
+          </button>
+        </div>
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept="application/json,.json"
+          tabIndex={-1}
+          className="sr-only"
+          aria-label="Import settings JSON"
+          aria-describedby={statusId}
+          onChange={(e) => void onImportFile(e.target.files?.[0])}
+        />
+        <p
+          id={statusId}
+          aria-live="polite"
+          className="min-h-[1rem] text-[10px] text-[var(--ink-muted)]"
         >
-          Export settings
-        </button>
-        <button
-          type="button"
-          onClick={onPickImport}
-          className={[
-            "min-h-6 rounded-md border border-[var(--border)] bg-[var(--preview-bg)] px-1.5 py-1 text-[11px] font-medium text-[var(--ink-muted)] outline-none",
-            "hover:text-[var(--ink)] focus-visible:ring-2 focus-visible:ring-[var(--ink)] focus-visible:ring-offset-1 focus-visible:ring-offset-[var(--surface)]",
-          ].join(" ")}
-        >
-          Import settings
-        </button>
+          {status}
+        </p>
       </div>
-      <input
-        ref={fileInputRef}
-        type="file"
-        accept="application/json,.json"
-        tabIndex={-1}
-        className="sr-only"
-        aria-label="Import settings JSON"
-        aria-describedby={statusId}
-        onChange={(e) => void onImportFile(e.target.files?.[0])}
-      />
-      <p
-        id={statusId}
-        aria-live="polite"
-        className="min-h-[1rem] text-[10px] text-[var(--ink-muted)]"
-      >
-        {status}
-      </p>
-    </div>
+    </SidebarSection>
   );
 }

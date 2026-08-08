@@ -169,7 +169,7 @@ export function FontLibrarySidebar() {
       className="flex h-full min-h-0 w-full flex-col gap-3 border-r border-[var(--border)] bg-[var(--surface)] p-4 md:w-72 md:shrink-0 lg:w-80"
     >
       <div>
-        <h1 className="font-[family-name:var(--font-display)] text-xl tracking-tight text-[var(--ink)]">
+        <h1 className="font-[family-name:var(--font-display)] text-3xl tracking-tight text-[var(--ink)]">
           Typeshelf
         </h1>
         <p className="mt-0.5 text-xs text-[var(--ink-muted)]">
@@ -384,7 +384,7 @@ export function FontLibrarySidebar() {
         tabIndex={-1}
         role="group"
         aria-label="Library settings"
-        className="flex flex-col gap-3"
+        className="mt-auto flex flex-col"
       >
         <ThemeControls />
         <PreferencesBackup />

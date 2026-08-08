@@ -37,14 +37,24 @@ function Chevron({ open }: { open: boolean }) {
 export function SidebarSection({
   label,
   defaultOpen = false,
+  onOpenChange,
   children,
 }: {
   label: string;
   defaultOpen?: boolean;
+  onOpenChange?: (open: boolean) => void;
   children: ReactNode;
 }) {
   const [open, setOpen] = useState(defaultOpen);
   const contentId = useId();
+
+  const toggle = () => {
+    setOpen((v) => {
+      const next = !v;
+      onOpenChange?.(next);
+      return next;
+    });
+  };
 
   return (
     <div className="border-t border-[var(--border)] pt-2">
@@ -52,7 +62,7 @@ export function SidebarSection({
         type="button"
         aria-expanded={open}
         aria-controls={contentId}
-        onClick={() => setOpen((v) => !v)}
+        onClick={toggle}
         className={[
           "flex min-h-6 w-full items-center justify-between gap-2 rounded-md px-1 py-1 text-left outline-none",
           "text-[10px] font-semibold uppercase tracking-wide text-[var(--ink-muted)]",

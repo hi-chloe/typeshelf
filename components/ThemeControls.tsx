@@ -2,6 +2,7 @@
 
 import { useFontLibrary } from "@/lib/FontLibraryContext";
 import { HsvColorPicker } from "./HsvColorPicker";
+import { SidebarSection } from "./SidebarSection";
 import {
   COLOR_SCHEMES,
   SCHEME_LABELS,
@@ -281,115 +282,116 @@ export function ThemeControls() {
   };
 
   return (
-    <div className="space-y-2.5">
-      <div className="relative" ref={menuRef}>
-        <div className="flex items-center justify-between gap-2">
-          <p
-            id={labelId}
-            className="text-[10px] font-semibold uppercase tracking-wide text-[var(--ink-muted)]"
-          >
-            Color
-          </p>
-          <button
-            ref={triggerRef}
-            type="button"
-            aria-haspopup="true"
-            aria-expanded={schemeMenuOpen}
-            aria-controls={menuId}
-            aria-label={`Color theme: ${SCHEME_LABELS[scheme]}. Open color menu`}
-            title={`${SCHEME_LABELS[scheme]} theme`}
-            onClick={() => setSchemeMenuOpen((open) => !open)}
+    <>
+      <SidebarSection
+        label="Color"
+        onOpenChange={(open) => {
+          if (!open) setSchemeMenuOpen(false);
+        }}
+      >
+        <div className="relative" ref={menuRef}>
+          <div className="flex items-center justify-end gap-2">
+            <span id={labelId} className="sr-only">
+              Color
+            </span>
+            <button
+              ref={triggerRef}
+              type="button"
+              aria-haspopup="true"
+              aria-expanded={schemeMenuOpen}
+              aria-controls={menuId}
+              aria-label={`Color theme: ${SCHEME_LABELS[scheme]}. Open color menu`}
+              title={`${SCHEME_LABELS[scheme]} theme`}
+              onClick={() => setSchemeMenuOpen((open) => !open)}
+              className={[
+                "inline-flex h-7 min-w-7 items-center gap-1.5 rounded-md border px-1.5 outline-none",
+                "focus-visible:ring-2 focus-visible:ring-[var(--ink)] focus-visible:ring-offset-1 focus-visible:ring-offset-[var(--surface)]",
+                schemeMenuOpen
+                  ? "border-[var(--accent)] bg-[var(--accent-soft)] text-[var(--accent-strong)]"
+                  : "border-[var(--border)] bg-[var(--preview-bg)] text-[var(--ink-muted)] hover:text-[var(--ink)]",
+              ].join(" ")}
+            >
+              <span
+                aria-hidden
+                className="h-3.5 w-3.5 shrink-0 rounded-full ring-1 ring-[var(--border)]"
+                style={{
+                  backgroundColor:
+                    scheme === "custom" ? customSeed : SCHEME_SWATCH[scheme],
+                }}
+              />
+              <PaletteIcon />
+            </button>
+          </div>
+
+          <div
+            aria-hidden={!schemeMenuOpen}
             className={[
-              "inline-flex h-7 min-w-7 items-center gap-1.5 rounded-md border px-1.5 outline-none",
-              "focus-visible:ring-2 focus-visible:ring-[var(--ink)] focus-visible:ring-offset-1 focus-visible:ring-offset-[var(--surface)]",
+              "absolute bottom-[calc(100%+0.4rem)] right-0 z-20 origin-bottom-right",
+              "rounded-xl border border-[var(--border)] bg-[var(--preview-bg)] p-2 shadow-[0_8px_24px_color-mix(in_srgb,var(--ink)_14%,transparent)]",
+              "motion-safe:transition-[opacity,transform] motion-safe:duration-200 motion-safe:ease-out",
               schemeMenuOpen
-                ? "border-[var(--accent)] bg-[var(--accent-soft)] text-[var(--accent-strong)]"
-                : "border-[var(--border)] bg-[var(--preview-bg)] text-[var(--ink-muted)] hover:text-[var(--ink)]",
+                ? "pointer-events-auto translate-y-0 scale-100 opacity-100"
+                : "pointer-events-none translate-y-1 scale-95 opacity-0",
             ].join(" ")}
           >
-            <span
-              aria-hidden
-              className="h-3.5 w-3.5 shrink-0 rounded-full ring-1 ring-[var(--border)]"
-              style={{
-                backgroundColor:
-                  scheme === "custom" ? customSeed : SCHEME_SWATCH[scheme],
-              }}
-            />
-            <PaletteIcon />
-          </button>
-        </div>
+            <div
+              id={menuId}
+              role="radiogroup"
+              aria-labelledby={labelId}
+              className="flex flex-wrap gap-1.5"
+              onKeyDown={onSchemeKeyDown}
+            >
+              {COLOR_SCHEMES.map((id, index) => (
+                <SchemeSwatch
+                  key={id}
+                  ref={(el) => {
+                    schemeButtonRefs.current[index] = el;
+                  }}
+                  scheme={id}
+                  customSeed={customSeed}
+                  selected={scheme === id}
+                  onSelect={() => commitScheme(id)}
+                  onFocus={() => setSchemeFocusIndex(index)}
+                  tabIndex={
+                    schemeMenuOpen && index === schemeFocusIndex ? 0 : -1
+                  }
+                />
+              ))}
+            </div>
 
-        <div
-          aria-hidden={!schemeMenuOpen}
-          className={[
-            "absolute bottom-[calc(100%+0.4rem)] right-0 z-20 origin-bottom-right",
-            "rounded-xl border border-[var(--border)] bg-[var(--preview-bg)] p-2 shadow-[0_8px_24px_color-mix(in_srgb,var(--ink)_14%,transparent)]",
-            "motion-safe:transition-[opacity,transform] motion-safe:duration-200 motion-safe:ease-out",
-            schemeMenuOpen
-              ? "pointer-events-auto translate-y-0 scale-100 opacity-100"
-              : "pointer-events-none translate-y-1 scale-95 opacity-0",
-          ].join(" ")}
-        >
-          <div
-            id={menuId}
-            role="radiogroup"
-            aria-labelledby={labelId}
-            className="flex flex-wrap gap-1.5"
-            onKeyDown={onSchemeKeyDown}
-          >
-            {COLOR_SCHEMES.map((id, index) => (
-              <SchemeSwatch
-                key={id}
-                ref={(el) => {
-                  schemeButtonRefs.current[index] = el;
+            {/*
+              Only the HUE of this color is used. Saturation and lightness are
+              solved against contrast targets in lib/customTheme.ts, so the theme
+              can't be driven below AA no matter what is picked — verified across
+              all 360 hues. The swatch shows the seed, not the derived accent, so
+              the control stays predictable while you drag.
+            */}
+            <div className="mt-2 border-t border-[var(--border)] pt-2">
+              <p className="mb-1 text-[10px] font-medium text-[var(--ink-muted)]">
+                Custom color
+              </p>
+              <HsvColorPicker
+                label="Custom theme"
+                value={customSeed}
+                tabIndex={schemeMenuOpen ? 0 : -1}
+                onChange={(hex) => {
+                  setCustomSeed(hex);
+                  if (scheme !== "custom") setColorScheme("custom");
                 }}
-                scheme={id}
-                customSeed={customSeed}
-                selected={scheme === id}
-                onSelect={() => commitScheme(id)}
-                onFocus={() => setSchemeFocusIndex(index)}
-                tabIndex={
-                  schemeMenuOpen && index === schemeFocusIndex ? 0 : -1
-                }
+                onCommit={(hex) => setCustomSeed(hex)}
               />
-            ))}
-          </div>
-
-          {/*
-            Only the HUE of this color is used. Saturation and lightness are
-            solved against contrast targets in lib/customTheme.ts, so the theme
-            can't be driven below AA no matter what is picked — verified across
-            all 360 hues. The swatch shows the seed, not the derived accent, so
-            the control stays predictable while you drag.
-          */}
-          <div className="mt-2 border-t border-[var(--border)] pt-2">
-            <p className="mb-1 text-[10px] font-medium text-[var(--ink-muted)]">
-              Custom color
-            </p>
-            <HsvColorPicker
-              label="Custom theme"
-              value={customSeed}
-              tabIndex={schemeMenuOpen ? 0 : -1}
-              onChange={(hex) => {
-                setCustomSeed(hex);
-                if (scheme !== "custom") setColorScheme("custom");
-              }}
-              onCommit={(hex) => setCustomSeed(hex)}
-            />
-            <p className="mt-1 font-mono text-[10px] uppercase tabular-nums text-[var(--ink-muted)]">
-              {customSeed}
-            </p>
+              <p className="mt-1 font-mono text-[10px] uppercase tabular-nums text-[var(--ink-muted)]">
+                {customSeed}
+              </p>
+            </div>
           </div>
         </div>
-      </div>
+      </SidebarSection>
 
-      <div>
-        <p
-          id={modeLabelId}
-          className="mb-1.5 text-[10px] font-semibold uppercase tracking-wide text-[var(--ink-muted)]"
-        >
+      <SidebarSection label="Mode">
+        <span id={modeLabelId} className="sr-only">
           Mode
-        </p>
+        </span>
         <div
           role="radiogroup"
           aria-labelledby={modeLabelId}
@@ -424,8 +426,8 @@ export function ThemeControls() {
             );
           })}
         </div>
-      </div>
-    </div>
+      </SidebarSection>
+    </>
   );
 }
 

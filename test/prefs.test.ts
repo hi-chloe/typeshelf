@@ -20,7 +20,7 @@ describe("migratePreferences", () => {
     expect(prefs.customCategories).toEqual(["Poster"]);
     expect(prefs.categoryOverrides).toEqual({ Inter: "Sans-serif" });
     expect(prefs.theme.scheme).toBe("ember");
-    expect(prefs.theme.mode).toBe("system");
+    expect(prefs.theme.mode).toBe("light");
     expect(prefs.previewColor).toBeNull();
     expect(prefs.previewBgColor).toBeNull();
   });
