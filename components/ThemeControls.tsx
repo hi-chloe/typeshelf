@@ -10,11 +10,13 @@ import {
   type ThemeMode,
 } from "@/lib/theme";
 import {
+  forwardRef,
   useCallback,
   useEffect,
   useId,
   useRef,
   useState,
+  type KeyboardEvent,
 } from "react";
 
 const MODE_LABELS: Record<ThemeMode, string> = {
@@ -31,10 +33,15 @@ function CheckIcon() {
       className="h-3 w-3"
       fill="none"
       // Fixed white on fixed swatch faces (scheme previews, not theme chrome).
+      // Dark halo keeps ≥3:1 on light stops (e.g. spectrum gold); ring also marks selection.
       stroke="#ffffff"
       strokeWidth="2.25"
       strokeLinecap="round"
       strokeLinejoin="round"
+      style={{
+        filter:
+          "drop-shadow(0 0 0.6px rgba(0,0,0,0.9)) drop-shadow(0 0 1.2px rgba(0,0,0,0.75))",
+      }}
     >
       <path d="M3.5 8.5 6.5 11.5 12.5 4.5" />
     </svg>
@@ -62,14 +69,44 @@ function PaletteIcon() {
   );
 }
 
+/**
+ * Roving radiogroup helpers.
+ *
+ * VariantChips separates arrow focus from selection because each commit can
+ * load a font face. Theme tokens are cheap to swap, so arrow / Home / End
+ * select immediately — standard WAI-ARIA radio behavior.
+ */
+function clampIndex(next: number, length: number) {
+  return Math.max(0, Math.min(length - 1, next));
+}
+
 export function ThemeControls() {
   const { state, setColorScheme, setThemeMode } = useFontLibrary();
   const { scheme, mode } = state.theme;
   const [schemeMenuOpen, setSchemeMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
+  const schemeButtonRefs = useRef<Array<HTMLButtonElement | null>>([]);
+  const modeButtonRefs = useRef<Array<HTMLButtonElement | null>>([]);
   const menuId = useId();
   const labelId = useId();
+  const modeLabelId = useId();
+
+  const selectedSchemeIndex = Math.max(0, COLOR_SCHEMES.indexOf(scheme));
+  const selectedModeIndex = Math.max(0, THEME_MODES.indexOf(mode));
+  const [schemeFocusIndex, setSchemeFocusIndex] = useState(selectedSchemeIndex);
+  const [modeFocusIndex, setModeFocusIndex] = useState(selectedModeIndex);
+  const [prevScheme, setPrevScheme] = useState(scheme);
+  const [prevMode, setPrevMode] = useState(mode);
+
+  if (scheme !== prevScheme) {
+    setPrevScheme(scheme);
+    setSchemeFocusIndex(selectedSchemeIndex);
+  }
+  if (mode !== prevMode) {
+    setPrevMode(mode);
+    setModeFocusIndex(selectedModeIndex);
+  }
 
   const closeMenu = useCallback(() => {
     setSchemeMenuOpen(false);
@@ -87,7 +124,7 @@ export function ThemeControls() {
       setSchemeMenuOpen(false);
     };
 
-    const onKeyDown = (event: KeyboardEvent) => {
+    const onKeyDown = (event: globalThis.KeyboardEvent) => {
       if (event.key === "Escape") {
         event.preventDefault();
         closeMenu();
@@ -102,10 +139,102 @@ export function ThemeControls() {
     };
   }, [schemeMenuOpen, closeMenu]);
 
-  const selectScheme = (id: ColorScheme) => {
+  // Move focus into the checked swatch when the popover opens (not a dialog).
+  useEffect(() => {
+    if (!schemeMenuOpen) return;
+    const index = Math.max(0, COLOR_SCHEMES.indexOf(scheme));
+    const frame = requestAnimationFrame(() => {
+      schemeButtonRefs.current[index]?.focus();
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [schemeMenuOpen, scheme]);
+
+  const commitScheme = (id: ColorScheme) => {
     setColorScheme(id);
     setSchemeMenuOpen(false);
     triggerRef.current?.focus();
+  };
+
+  const moveSchemeFocus = (next: number) => {
+    const clamped = clampIndex(next, COLOR_SCHEMES.length);
+    setSchemeFocusIndex(clamped);
+    const id = COLOR_SCHEMES[clamped];
+    if (id) setColorScheme(id);
+    const el = schemeButtonRefs.current[clamped];
+    el?.focus();
+  };
+
+  const onSchemeKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
+    switch (event.key) {
+      case "ArrowRight":
+      case "ArrowDown":
+        event.preventDefault();
+        moveSchemeFocus(schemeFocusIndex + 1);
+        break;
+      case "ArrowLeft":
+      case "ArrowUp":
+        event.preventDefault();
+        moveSchemeFocus(schemeFocusIndex - 1);
+        break;
+      case "Home":
+        event.preventDefault();
+        moveSchemeFocus(0);
+        break;
+      case "End":
+        event.preventDefault();
+        moveSchemeFocus(COLOR_SCHEMES.length - 1);
+        break;
+      case " ":
+      case "Enter": {
+        event.preventDefault();
+        const id = COLOR_SCHEMES[schemeFocusIndex];
+        if (id) commitScheme(id);
+        break;
+      }
+      default:
+        break;
+    }
+  };
+
+  const moveModeFocus = (next: number) => {
+    const clamped = clampIndex(next, THEME_MODES.length);
+    setModeFocusIndex(clamped);
+    const id = THEME_MODES[clamped];
+    if (id) setThemeMode(id);
+    const el = modeButtonRefs.current[clamped];
+    el?.focus();
+  };
+
+  const onModeKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
+    switch (event.key) {
+      case "ArrowRight":
+      case "ArrowDown":
+        event.preventDefault();
+        moveModeFocus(modeFocusIndex + 1);
+        break;
+      case "ArrowLeft":
+      case "ArrowUp":
+        event.preventDefault();
+        moveModeFocus(modeFocusIndex - 1);
+        break;
+      case "Home":
+        event.preventDefault();
+        moveModeFocus(0);
+        break;
+      case "End":
+        event.preventDefault();
+        moveModeFocus(THEME_MODES.length - 1);
+        break;
+      case " ":
+      case "Enter": {
+        event.preventDefault();
+        const id = THEME_MODES[modeFocusIndex];
+        if (id) setThemeMode(id);
+        break;
+      }
+      default:
+        break;
+    }
   };
 
   return (
@@ -121,7 +250,7 @@ export function ThemeControls() {
           <button
             ref={triggerRef}
             type="button"
-            aria-haspopup="dialog"
+            aria-haspopup="true"
             aria-expanded={schemeMenuOpen}
             aria-controls={menuId}
             aria-label={`Color theme: ${SCHEME_LABELS[scheme]}. Open color menu`}
@@ -152,9 +281,6 @@ export function ThemeControls() {
         </div>
 
         <div
-          id={menuId}
-          role="dialog"
-          aria-labelledby={labelId}
           aria-hidden={!schemeMenuOpen}
           className={[
             "absolute bottom-[calc(100%+0.4rem)] right-0 z-20 origin-bottom-right",
@@ -166,17 +292,25 @@ export function ThemeControls() {
           ].join(" ")}
         >
           <div
+            id={menuId}
             role="radiogroup"
             aria-labelledby={labelId}
             className="flex flex-wrap gap-1.5"
+            onKeyDown={onSchemeKeyDown}
           >
-            {COLOR_SCHEMES.map((id) => (
+            {COLOR_SCHEMES.map((id, index) => (
               <SchemeSwatch
                 key={id}
+                ref={(el) => {
+                  schemeButtonRefs.current[index] = el;
+                }}
                 scheme={id}
                 selected={scheme === id}
-                onSelect={() => selectScheme(id)}
-                tabIndex={schemeMenuOpen ? 0 : -1}
+                onSelect={() => commitScheme(id)}
+                onFocus={() => setSchemeFocusIndex(index)}
+                tabIndex={
+                  schemeMenuOpen && index === schemeFocusIndex ? 0 : -1
+                }
               />
             ))}
           </div>
@@ -185,26 +319,32 @@ export function ThemeControls() {
 
       <div>
         <p
-          id="theme-mode-label"
+          id={modeLabelId}
           className="mb-1.5 text-[10px] font-semibold uppercase tracking-wide text-[var(--ink-muted)]"
         >
           Mode
         </p>
         <div
           role="radiogroup"
-          aria-labelledby="theme-mode-label"
+          aria-labelledby={modeLabelId}
           className="grid grid-cols-3 gap-1"
+          onKeyDown={onModeKeyDown}
         >
-          {THEME_MODES.map((id) => {
+          {THEME_MODES.map((id, index) => {
             const selected = mode === id;
             return (
               <button
                 key={id}
+                ref={(el) => {
+                  modeButtonRefs.current[index] = el;
+                }}
                 type="button"
                 role="radio"
                 aria-checked={selected}
                 aria-label={`${MODE_LABELS[id]} mode`}
+                tabIndex={index === modeFocusIndex ? 0 : -1}
                 onClick={() => setThemeMode(id)}
+                onFocus={() => setModeFocusIndex(index)}
                 className={[
                   "min-h-6 rounded-md border px-1.5 py-1 text-[11px] font-medium outline-none",
                   "focus-visible:ring-2 focus-visible:ring-[var(--ink)] focus-visible:ring-offset-1 focus-visible:ring-offset-[var(--surface)]",
@@ -223,23 +363,26 @@ export function ThemeControls() {
   );
 }
 
-function SchemeSwatch({
-  scheme,
-  selected,
-  onSelect,
-  tabIndex,
-}: {
-  scheme: ColorScheme;
-  selected: boolean;
-  onSelect: () => void;
-  tabIndex?: number;
-}) {
+const SchemeSwatch = forwardRef<
+  HTMLButtonElement,
+  {
+    scheme: ColorScheme;
+    selected: boolean;
+    onSelect: () => void;
+    onFocus: () => void;
+    tabIndex?: number;
+  }
+>(function SchemeSwatch(
+  { scheme, selected, onSelect, onFocus, tabIndex },
+  ref,
+) {
   const label = `${SCHEME_LABELS[scheme]} theme`;
   const face = SCHEME_SWATCH[scheme];
   const isSpectrum = scheme === "spectrum";
 
   return (
     <button
+      ref={ref}
       type="button"
       role="radio"
       aria-checked={selected}
@@ -247,6 +390,7 @@ function SchemeSwatch({
       title={label}
       tabIndex={tabIndex}
       onClick={onSelect}
+      onFocus={onFocus}
       className={[
         "relative flex h-7 w-7 items-center justify-center rounded-full outline-none",
         "focus-visible:ring-2 focus-visible:ring-[var(--ink)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--preview-bg)]",
@@ -262,4 +406,4 @@ function SchemeSwatch({
       {selected ? <CheckIcon /> : null}
     </button>
   );
-}
+});

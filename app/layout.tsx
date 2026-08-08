@@ -21,9 +21,33 @@ const sans = Schibsted_Grotesk({
   subsets: ["latin"],
 });
 
+/**
+ * metadataBase drives absolute URLs for the generated Open Graph card.
+ * Set NEXT_PUBLIC_SITE_URL in the deployment; localhost is only a dev fallback.
+ */
+const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000";
+
+const title = "Typeshelf";
+const description =
+  "Browse and preview your fonts entirely in the browser. Nothing is uploaded anywhere.";
+
 export const metadata: Metadata = {
-  title: "Typeshelf",
-  description: "Browse and preview local fonts on your shelf",
+  metadataBase: new URL(siteUrl),
+  title: { default: title, template: "%s · Typeshelf" },
+  description,
+  applicationName: title,
+  openGraph: {
+    type: "website",
+    siteName: title,
+    title,
+    description,
+    url: siteUrl,
+  },
+  twitter: {
+    card: "summary_large_image",
+    title,
+    description,
+  },
 };
 
 const themeBootScript = getThemeBootScript([
@@ -51,6 +75,18 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
         />
       </head>
       <body className="min-h-full font-[family-name:var(--font-ui)]">
+        <a
+          href="#preview-pane"
+          className="sr-only focus:not-sr-only focus:fixed focus:left-3 focus:top-3 focus:z-[100] focus:bg-[var(--surface)] focus:p-3 focus:text-sm focus:font-medium focus:text-[var(--ink)] focus:outline focus:outline-[var(--border)] focus-visible:ring-2 focus-visible:ring-[var(--ink)] focus-visible:ring-offset-1 focus-visible:ring-offset-[var(--surface)]"
+        >
+          Skip to preview
+        </a>
+        <a
+          href="#library-settings"
+          className="sr-only focus:not-sr-only focus:fixed focus:left-3 focus:top-3 focus:z-[100] focus:bg-[var(--surface)] focus:p-3 focus:text-sm focus:font-medium focus:text-[var(--ink)] focus:outline focus:outline-[var(--border)] focus-visible:ring-2 focus-visible:ring-[var(--ink)] focus-visible:ring-offset-1 focus-visible:ring-offset-[var(--surface)]"
+        >
+          Skip to settings
+        </a>
         <Providers>{children}</Providers>
       </body>
     </html>

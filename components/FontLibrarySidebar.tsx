@@ -2,6 +2,7 @@
 
 import { FontFamilyListItem } from "./FontFamilyListItem";
 import { FontUploadZone } from "./FontUploadZone";
+import { SampleFontsButton } from "./SampleFontsButton";
 import { PreferencesBackup } from "./PreferencesBackup";
 import { SystemFontBanner } from "./SystemFontBanner";
 import { ThemeControls } from "./ThemeControls";
@@ -137,7 +138,10 @@ export function FontLibrarySidebar() {
   };
 
   return (
-    <aside className="flex h-full min-h-0 w-full flex-col gap-3 border-r border-[var(--border)] bg-[var(--surface)] p-4 md:w-72 md:shrink-0 lg:w-80">
+    <aside
+      aria-label="Font library"
+      className="flex h-full min-h-0 w-full flex-col gap-3 border-r border-[var(--border)] bg-[var(--surface)] p-4 md:w-72 md:shrink-0 lg:w-80"
+    >
       <div>
         <h1 className="font-[family-name:var(--font-display)] text-xl tracking-tight text-[var(--ink)]">
           Typeshelf
@@ -149,6 +153,7 @@ export function FontLibrarySidebar() {
 
       <SystemFontBanner />
       <FontUploadZone />
+      <SampleFontsButton />
 
       <div className="space-y-2">
         <label className="block">
@@ -158,7 +163,7 @@ export function FontLibrarySidebar() {
             value={state.searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             placeholder="Search fonts or categories…"
-            className="w-full rounded-md border border-[var(--border)] bg-[var(--preview-bg)] px-2.5 py-1.5 text-sm text-[var(--ink)] outline-none placeholder:text-[var(--ink-muted)] focus:border-[var(--accent)]"
+            className="w-full rounded-md border border-[var(--border)] bg-[var(--preview-bg)] px-2.5 py-1.5 text-sm text-[var(--ink)] outline-none placeholder:text-[var(--ink-muted)] focus:border-[var(--accent)] focus-visible:ring-2 focus-visible:ring-[var(--ink)] focus-visible:ring-offset-1 focus-visible:ring-offset-[var(--surface)]"
           />
         </label>
 
@@ -195,7 +200,7 @@ export function FontLibrarySidebar() {
                 }
               }}
               placeholder="Category name"
-              className="w-full rounded border border-[var(--border)] bg-[var(--surface)] px-2 py-1 text-sm text-[var(--ink)] outline-none focus:border-[var(--accent)]"
+              className="w-full rounded border border-[var(--border)] bg-[var(--surface)] px-2 py-1 text-sm text-[var(--ink)] outline-none focus:border-[var(--accent)] focus-visible:ring-2 focus-visible:ring-[var(--ink)] focus-visible:ring-offset-1 focus-visible:ring-offset-[var(--surface)]"
             />
             {categoryError ? (
               <p className="text-[10px] text-[var(--warn-strong)]">{categoryError}</p>
@@ -261,6 +266,13 @@ export function FontLibrarySidebar() {
         ) : null}
       </div>
 
+      <a
+        href="#library-settings"
+        className="sr-only focus:not-sr-only focus:fixed focus:left-3 focus:top-3 focus:z-[100] focus:bg-[var(--surface)] focus:p-3 focus:text-sm focus:font-medium focus:text-[var(--ink)] focus:outline focus:outline-[var(--border)] focus-visible:ring-2 focus-visible:ring-[var(--ink)] focus-visible:ring-offset-1 focus-visible:ring-offset-[var(--surface)]"
+      >
+        Skip past font list
+      </a>
+
       <div data-font-list className="min-h-0 flex-1 overflow-y-auto pr-1">
         {!hasFonts ? (
           <p className="px-1 py-6 text-center text-sm text-[var(--ink-muted)]">
@@ -299,8 +311,16 @@ export function FontLibrarySidebar() {
         </p>
       ) : null}
 
-      <ThemeControls />
-      <PreferencesBackup />
+      <div
+        id="library-settings"
+        tabIndex={-1}
+        role="group"
+        aria-label="Library settings"
+        className="flex flex-col gap-3"
+      >
+        <ThemeControls />
+        <PreferencesBackup />
+      </div>
     </aside>
   );
 }

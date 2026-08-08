@@ -8,7 +8,6 @@ import {
   useLayoutEffect,
   useMemo,
   useReducer,
-  useRef,
   useState,
   type ReactNode,
 } from "react";
@@ -404,11 +403,7 @@ export function FontLibraryProvider({
   /** Injected store for tests; defaults to createPreferencesStore(). */
   store?: PreferencesStore;
 }) {
-  const storeRef = useRef<PreferencesStore | null>(null);
-  if (storeRef.current === null) {
-    storeRef.current = storeProp ?? createPreferencesStore();
-  }
-  const store = storeRef.current;
+  const [store] = useState(() => storeProp ?? createPreferencesStore());
 
   const [state, dispatch] = useReducer(reducer, initialState);
   const [prefsHydrated, setPrefsHydrated] = useState(false);
@@ -452,6 +447,8 @@ export function FontLibraryProvider({
   useEffect(() => {
     if (!prefsHydrated) return;
     void store.save(prefsFromState(state));
+    // Deliberately omit full `state` — fonts/search/warnings must not write prefs.
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- prefs slice only
   }, [
     prefsHydrated,
     store,

@@ -95,11 +95,21 @@ export function PreviewPane() {
     setPreviewBgColor,
   } = useFontLibrary();
 
-  const [faceReady, setFaceReady] = useState(false);
-  const [faceError, setFaceError] = useState<string | null>(null);
+  const [readyForId, setReadyForId] = useState<string | null>(null);
+  const [faceError, setFaceError] = useState<{
+    id: string;
+    message: string;
+  } | null>(null);
   /** Live overrides while a color menu is dragging — skips the reducer. */
   const [liveFg, setLiveFg] = useState<string | null>(null);
   const [liveBg, setLiveBg] = useState<string | null>(null);
+
+  const fontId = selectedFont?.id ?? null;
+  const faceReady = fontId !== null && readyForId === fontId;
+  const faceErrorMessage =
+    faceError && fontId !== null && faceError.id === fontId
+      ? faceError.message
+      : null;
 
   useEffect(() => {
     pinResidentFace(selectedFont?.id ?? null);
@@ -109,26 +119,22 @@ export function PreviewPane() {
   }, [selectedFont?.id]);
 
   useEffect(() => {
-    if (!selectedFont) {
-      setFaceReady(false);
-      setFaceError(null);
-      return;
-    }
+    if (!selectedFont) return;
 
     let cancelled = false;
-    setFaceReady(false);
-    setFaceError(null);
 
     void selectedFont
       .ensureFontFace()
       .then(() => {
-        if (!cancelled) setFaceReady(true);
+        if (!cancelled) setReadyForId(selectedFont.id);
       })
       .catch((err: unknown) => {
         if (cancelled) return;
-        setFaceError(
-          err instanceof Error ? err.message : "Could not load font preview.",
-        );
+        setFaceError({
+          id: selectedFont.id,
+          message:
+            err instanceof Error ? err.message : "Could not load font preview.",
+        });
       });
 
     return () => {
@@ -151,9 +157,15 @@ export function PreviewPane() {
   }, []);
 
   const contrast = usePreviewContrast(textColor, bgColor);
+  const contrastId = useId();
 
   return (
-    <main className="flex min-h-0 min-w-0 flex-1 flex-col gap-6 p-4 md:p-8">
+    <main
+      id="preview-pane"
+      tabIndex={-1}
+      aria-label="Font preview"
+      className="flex min-h-0 min-w-0 flex-1 flex-col gap-6 p-4 md:p-8"
+    >
       {!selectedFont ? (
         <div className="flex flex-1 items-center justify-center">
           <p className="max-w-sm text-center text-[var(--ink-muted)]">
@@ -171,12 +183,10 @@ export function PreviewPane() {
               <h2 className="font-[family-name:var(--font-display)] text-2xl tracking-tight text-[var(--ink)]">
                 {selectedFont.family}
               </h2>
-              <p className="text-sm text-[var(--ink-muted)]">
-                {selectedFont.style}
-                <span className="mx-1.5 text-[var(--border)]">·</span>
-                weight {selectedFont.weightClass}
-                <span className="mx-1.5 text-[var(--border)]">·</span>
-                {selectedFont.source}
+              <p className="flex flex-wrap items-center gap-x-1.5 text-sm text-[var(--ink-muted)]">
+                <span>{selectedFont.style}</span>
+                <span>weight {selectedFont.weightClass}</span>
+                <span>{selectedFont.source}</span>
               </p>
             </div>
             {/*
@@ -240,6 +250,7 @@ export function PreviewPane() {
                 presets={TEXT_COLOR_PRESETS}
                 onChange={setPreviewColor}
                 onLiveChange={onLiveFg}
+                aria-describedby={contrast ? contrastId : undefined}
               />
               <PreviewColorMenu
                 label="Background"
@@ -248,9 +259,13 @@ export function PreviewPane() {
                 presets={BG_COLOR_PRESETS}
                 onChange={setPreviewBgColor}
                 onLiveChange={onLiveBg}
+                aria-describedby={contrast ? contrastId : undefined}
               />
               {contrast ? (
-                <span className="text-[11px] tabular-nums text-[var(--ink-muted)]">
+                <span
+                  id={contrastId}
+                  className="text-[11px] tabular-nums text-[var(--ink-muted)]"
+                >
                   {contrast.label}
                 </span>
               ) : null}
@@ -270,11 +285,11 @@ export function PreviewPane() {
           </div>
 
           <div
-            className="relative min-h-[200px] flex-1 overflow-auto rounded-xl border border-[var(--border)] p-6 shadow-[inset_0_1px_0_rgba(255,255,255,0.4)]"
+            className="relative min-h-[200px] flex-1 overflow-auto rounded-xl border border-[var(--border)] p-6 shadow-[inset_0_1px_0_var(--inset-highlight)]"
             style={{ background: bgColor }}
           >
-            {faceError ? (
-              <p className="text-sm text-[var(--warn-strong)]">{faceError}</p>
+            {faceErrorMessage ? (
+              <p className="text-sm text-[var(--warn-strong)]">{faceErrorMessage}</p>
             ) : !faceReady ? (
               <p className="text-sm text-[var(--ink-muted)]">Loading face…</p>
             ) : (
@@ -395,13 +410,18 @@ function MetricControl({
 }) {
   const sliderId = useId();
   const numberId = useId();
+  const rangeId = useId();
   const [draft, setDraft] = useState(formatValue(value));
   const [focused, setFocused] = useState(false);
+  const [prevValue, setPrevValue] = useState(value);
   const skipCommitRef = useRef(false);
 
-  useEffect(() => {
-    if (!focused) setDraft(formatValue(value));
-  }, [value, focused, formatValue]);
+  if (!focused && value !== prevValue) {
+    setPrevValue(value);
+    setDraft(formatValue(value));
+  } else if (value !== prevValue) {
+    setPrevValue(value);
+  }
 
   const commitDraft = () => {
     const parsed = Number.parseFloat(draft);
@@ -426,6 +446,7 @@ function MetricControl({
             type="text"
             inputMode="decimal"
             aria-label={`${numberName} (${unit})`}
+            aria-describedby={rangeId}
             value={draft}
             onFocus={() => setFocused(true)}
             onChange={(e) => {
@@ -460,6 +481,10 @@ function MetricControl({
           />
           <span aria-hidden className="min-w-[1rem] text-[var(--ink-muted)]">
             {unit}
+          </span>
+          <span id={rangeId} className="sr-only">
+            Allowed range {hardMin} to {hardMax}
+            {unit}. Values outside this range are clamped.
           </span>
         </div>
       </div>

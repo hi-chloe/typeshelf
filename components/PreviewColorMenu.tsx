@@ -43,13 +43,13 @@ type PreviewColorMenuProps = {
    * Pass null to clear the live override (use stored/theme value).
    */
   onLiveChange: (color: string | null) => void;
+  /** Optional description for the trigger (e.g. contrast readout). */
+  "aria-describedby"?: string;
 };
 
 function useDebouncedCommit(onChange: (color: string | null) => void, ms = 140) {
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const pendingRef = useRef<string | null | undefined>(undefined);
-  const onChangeRef = useRef(onChange);
-  onChangeRef.current = onChange;
 
   useEffect(() => {
     return () => {
@@ -57,14 +57,17 @@ function useDebouncedCommit(onChange: (color: string | null) => void, ms = 140) 
     };
   }, []);
 
-  const flush = useCallback((color: string | null) => {
-    if (timerRef.current) {
-      clearTimeout(timerRef.current);
-      timerRef.current = null;
-    }
-    pendingRef.current = undefined;
-    onChangeRef.current(color);
-  }, []);
+  const flush = useCallback(
+    (color: string | null) => {
+      if (timerRef.current) {
+        clearTimeout(timerRef.current);
+        timerRef.current = null;
+      }
+      pendingRef.current = undefined;
+      onChange(color);
+    },
+    [onChange],
+  );
 
   const schedule = useCallback(
     (color: string) => {
@@ -74,10 +77,10 @@ function useDebouncedCommit(onChange: (color: string | null) => void, ms = 140) 
         timerRef.current = null;
         const next = pendingRef.current;
         pendingRef.current = undefined;
-        if (next !== undefined) onChangeRef.current(next);
+        if (next !== undefined) onChange(next);
       }, ms);
     },
-    [ms],
+    [ms, onChange],
   );
 
   const flushPending = useCallback(() => {
@@ -88,8 +91,8 @@ function useDebouncedCommit(onChange: (color: string | null) => void, ms = 140) 
       clearTimeout(timerRef.current);
       timerRef.current = null;
     }
-    onChangeRef.current(next);
-  }, []);
+    onChange(next);
+  }, [onChange]);
 
   return { schedule, flush, flushPending };
 }
@@ -99,6 +102,8 @@ function resolveEffectiveHex(
   themeCss: string,
 ): string {
   if (value) return normalizeHex(value);
+  // allow-color-literal: logic fallback when getComputedStyle can't resolve a token
+  // (SSR / detached node), never painted as a style value.
   return resolveCssColor(themeCss) ?? "#000000";
 }
 
@@ -109,6 +114,7 @@ export function PreviewColorMenu({
   presets,
   onChange,
   onLiveChange,
+  "aria-describedby": ariaDescribedBy,
 }: PreviewColorMenuProps) {
   const [open, setOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
@@ -126,11 +132,14 @@ export function PreviewColorMenu({
     (next: boolean | ((prev: boolean) => boolean)) => {
       setOpen((prev) => {
         const resolved = typeof next === "function" ? next(prev) : next;
-        if (prev && !resolved) flushPending();
+        if (prev && !resolved) {
+          flushPending();
+          onLiveChange(null);
+        }
         return resolved;
       });
     },
-    [flushPending],
+    [flushPending, onLiveChange],
   );
 
   const refreshPresetHexes = useCallback(() => {
@@ -143,22 +152,28 @@ export function PreviewColorMenu({
   }, [presets]);
 
   // Keep draft in sync when closed (theme switch / external reset).
-  useEffect(() => {
-    if (!open) {
-      setDraftHex(resolveEffectiveHex(value, themeCss));
-      onLiveChange(null);
+  if (!open) {
+    const resolved = resolveEffectiveHex(value, themeCss);
+    if (draftHex !== resolved) {
+      setDraftHex(resolved);
     }
-  }, [value, themeCss, open, onLiveChange]);
+  }
 
   useEffect(() => {
     if (!open) return;
-    refreshPresetHexes();
+    let cancelled = false;
+    queueMicrotask(() => {
+      if (!cancelled) refreshPresetHexes();
+    });
     const obs = new MutationObserver(refreshPresetHexes);
     obs.observe(document.documentElement, {
       attributes: true,
       attributeFilter: ["data-scheme", "data-mode"],
     });
-    return () => obs.disconnect();
+    return () => {
+      cancelled = true;
+      obs.disconnect();
+    };
   }, [open, refreshPresetHexes]);
 
   // Re-read theme token when data-scheme / data-mode flips while closed.
@@ -237,6 +252,7 @@ export function PreviewColorMenu({
         aria-expanded={open}
         aria-controls={menuId}
         aria-labelledby={labelId}
+        aria-describedby={ariaDescribedBy}
         onClick={() => setOpenSafe((v) => !v)}
         className={[
           "inline-flex h-7 min-w-7 items-center gap-1.5 rounded-md border px-1.5 outline-none",
@@ -398,10 +414,14 @@ function HexField({
 }) {
   const [draft, setDraft] = useState(value);
   const [focused, setFocused] = useState(false);
+  const [prevValue, setPrevValue] = useState(value);
 
-  useEffect(() => {
-    if (!focused) setDraft(value);
-  }, [value, focused]);
+  if (!focused && value !== prevValue) {
+    setPrevValue(value);
+    setDraft(value);
+  } else if (value !== prevValue) {
+    setPrevValue(value);
+  }
 
   const commit = () => {
     const raw = draft.trim().startsWith("#") ? draft.trim() : `#${draft.trim()}`;
@@ -493,10 +513,14 @@ function ChannelInput({
 }) {
   const [draft, setDraft] = useState(String(value));
   const [focused, setFocused] = useState(false);
+  const [prevValue, setPrevValue] = useState(value);
 
-  useEffect(() => {
-    if (!focused) setDraft(String(value));
-  }, [value, focused]);
+  if (!focused && value !== prevValue) {
+    setPrevValue(value);
+    setDraft(String(value));
+  } else if (value !== prevValue) {
+    setPrevValue(value);
+  }
 
   const commit = () => {
     const parsed = Number.parseInt(draft, 10);

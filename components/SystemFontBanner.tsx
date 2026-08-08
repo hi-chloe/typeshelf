@@ -1,18 +1,30 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useState, useSyncExternalStore } from "react";
 import { useFontLibrary } from "@/lib/FontLibraryContext";
 import { parseLocalSystemFonts } from "@/lib/fontParsing";
+
+function subscribeNoop() {
+  return () => {};
+}
+
+function getLocalFontsSupported() {
+  return "queryLocalFonts" in window;
+}
+
+function getLocalFontsSupportedServer() {
+  return false;
+}
 
 export function SystemFontBanner() {
   const { state, dismissBanner, addFonts, setLoading, setLoadProgress } =
     useFontLibrary();
-  const [supported, setSupported] = useState(false);
+  const supported = useSyncExternalStore(
+    subscribeNoop,
+    getLocalFontsSupported,
+    getLocalFontsSupportedServer,
+  );
   const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    setSupported(typeof window !== "undefined" && "queryLocalFonts" in window);
-  }, []);
 
   const loadSystemFonts = useCallback(async () => {
     if (!window.queryLocalFonts) return;

@@ -31,6 +31,8 @@
   --warn-border: #e8cf9f;
   --glow-1: #f3efe6;
   --glow-2: #d9e8e2;
+  /* Light bevel on preview / inset panels; dark uses near-transparent so it doesn't flash white. */
+  --inset-highlight: rgba(255, 255, 255, 0.4);
 }
 
 /* ── Light-mode scheme accents (neutrals stay on :root) ── */
@@ -136,6 +138,7 @@
   --warn-border: #6a5530;
   --glow-1: #2a2218;
   --glow-2: #1a2824;
+  --inset-highlight: rgba(255, 255, 255, 0.06);
 }
 
 /* Contrast: strong/bg 9.54, strong/soft 6.86; on/strong 9.43; acc/bg 6.49 */

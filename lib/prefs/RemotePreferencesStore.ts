@@ -10,11 +10,13 @@ export class RemotePreferencesStore implements PreferencesStore {
     throw new Error("RemotePreferencesStore is not configured");
   }
 
-  async save(_prefs: LibraryPreferences): Promise<void> {
+  async save(prefs: LibraryPreferences): Promise<void> {
+    void prefs;
     throw new Error("RemotePreferencesStore is not configured");
   }
 
-  subscribe(_listener: (prefs: LibraryPreferences) => void): () => void {
+  subscribe(listener: (prefs: LibraryPreferences) => void): () => void {
+    void listener;
     throw new Error("RemotePreferencesStore is not configured");
   }
 }

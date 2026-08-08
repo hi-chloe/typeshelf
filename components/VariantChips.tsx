@@ -2,7 +2,6 @@
 
 import { useFontLibrary } from "@/lib/FontLibraryContext";
 import {
-  useEffect,
   useId,
   useRef,
   useState,
@@ -100,11 +99,13 @@ function ChipRadiogroup({
     variants.findIndex((v) => v.id === selectedId),
   );
   const [focusIndex, setFocusIndex] = useState(selectedIndex);
+  const [prevSelectedId, setPrevSelectedId] = useState(selectedId);
   const buttonRefs = useRef<Array<HTMLButtonElement | null>>([]);
 
-  useEffect(() => {
+  if (selectedId !== prevSelectedId) {
+    setPrevSelectedId(selectedId);
     setFocusIndex(selectedIndex);
-  }, [selectedIndex, selectedId]);
+  }
 
   const moveFocus = (next: number) => {
     const clamped = Math.max(0, Math.min(variants.length - 1, next));
