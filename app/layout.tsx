@@ -1,5 +1,8 @@
 import { Providers } from "@/components/Providers";
-import { LIBRARY_PREFS_KEY } from "@/lib/libraryPersistence";
+import {
+  LEGACY_PREFS_KEYS,
+  PREFS_STORAGE_KEY,
+} from "@/lib/libraryPersistence";
 import { getThemeBootScript } from "@/lib/theme";
 import type { Metadata } from "next";
 import { Schibsted_Grotesk, Young_Serif } from "next/font/google";
@@ -23,7 +26,10 @@ export const metadata: Metadata = {
   description: "Browse and preview local fonts on your shelf",
 };
 
-const themeBootScript = getThemeBootScript(LIBRARY_PREFS_KEY);
+const themeBootScript = getThemeBootScript([
+  PREFS_STORAGE_KEY,
+  ...LEGACY_PREFS_KEYS,
+]);
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (

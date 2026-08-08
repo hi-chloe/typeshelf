@@ -8,14 +8,16 @@ import {
   useLayoutEffect,
   useMemo,
   useReducer,
+  useRef,
   useState,
   type ReactNode,
 } from "react";
 import { classifyFont } from "./classifyFont";
 import {
-  loadLibraryPreferences,
-  saveLibraryPreferences,
+  createPreferencesStore,
+  LocalPreferencesStore,
   type LibraryPreferences,
+  type PreferencesStore,
 } from "./libraryPersistence";
 import {
   applyThemeToDocument,
@@ -363,6 +365,10 @@ type FontLibraryContextValue = {
   setThemeMode: (mode: ThemeMode) => void;
   setPreviewColor: (color: string | null) => void;
   setPreviewBgColor: (color: string | null) => void;
+  /** Snapshot of persistable prefs (export). Never includes font bytes. */
+  getPreferencesSnapshot: () => LibraryPreferences;
+  /** Replace prefs after a validated import (writes through the store). */
+  replacePreferences: (prefs: LibraryPreferences) => Promise<void>;
 };
 
 const FontLibraryContext = createContext<FontLibraryContextValue | null>(null);
@@ -379,28 +385,76 @@ function matchesSearch(
   );
 }
 
-export function FontLibraryProvider({ children }: { children: ReactNode }) {
+function prefsFromState(state: LibraryState): LibraryPreferences {
+  return {
+    favorites: state.favorites,
+    customCategories: state.customCategories,
+    categoryOverrides: state.categoryOverrides,
+    theme: state.theme,
+    previewColor: state.previewColor,
+    previewBgColor: state.previewBgColor,
+  };
+}
+
+export function FontLibraryProvider({
+  children,
+  store: storeProp,
+}: {
+  children: ReactNode;
+  /** Injected store for tests; defaults to createPreferencesStore(). */
+  store?: PreferencesStore;
+}) {
+  const storeRef = useRef<PreferencesStore | null>(null);
+  if (storeRef.current === null) {
+    storeRef.current = storeProp ?? createPreferencesStore();
+  }
+  const store = storeRef.current;
+
   const [state, dispatch] = useReducer(reducer, initialState);
   const [prefsHydrated, setPrefsHydrated] = useState(false);
 
-  // Hydrate after mount so SSR HTML matches the first client paint for org prefs.
+  /*
+   * Optimistic prefs hydrate in useLayoutEffect so LocalPreferencesStore
+   * (Promise.resolve(sync)) settles before paint — no empty→filled flash.
+   * Context talks only to PreferencesStore, never localStorage directly.
+   */
+  useLayoutEffect(() => {
+    let cancelled = false;
+
+    const apply = (prefs: LibraryPreferences) => {
+      if (cancelled) return;
+      dispatch({ type: "HYDRATE_PREFS", prefs });
+      applyThemeToDocument(prefs.theme);
+      setPrefsHydrated(true);
+    };
+
+    if (store instanceof LocalPreferencesStore) {
+      apply(store.loadSync());
+      return () => {
+        cancelled = true;
+      };
+    }
+
+    void store.load().then(apply);
+    return () => {
+      cancelled = true;
+    };
+  }, [store]);
+
   useEffect(() => {
-    dispatch({ type: "HYDRATE_PREFS", prefs: loadLibraryPreferences() });
-    setPrefsHydrated(true);
-  }, []);
+    if (!store.subscribe) return;
+    return store.subscribe((prefs) => {
+      dispatch({ type: "HYDRATE_PREFS", prefs });
+      applyThemeToDocument(prefs.theme);
+    });
+  }, [store]);
 
   useEffect(() => {
     if (!prefsHydrated) return;
-    saveLibraryPreferences({
-      favorites: state.favorites,
-      customCategories: state.customCategories,
-      categoryOverrides: state.categoryOverrides,
-      theme: state.theme,
-      previewColor: state.previewColor,
-      previewBgColor: state.previewBgColor,
-    });
+    void store.save(prefsFromState(state));
   }, [
     prefsHydrated,
+    store,
     state.favorites,
     state.customCategories,
     state.categoryOverrides,
@@ -409,16 +463,9 @@ export function FontLibraryProvider({ children }: { children: ReactNode }) {
     state.previewBgColor,
   ]);
 
-  /*
-   * Apply data-scheme / data-mode on <html>.
-   * Before prefs hydrate, re-read storage (mirrors the FOUC boot script) so
-   * React Strict Mode remounts don't wipe the correct theme with defaults.
-   */
+  // Keep <html> data-* in sync after hydration (and Strict Mode remounts).
   useLayoutEffect(() => {
-    if (!prefsHydrated) {
-      applyThemeToDocument(loadLibraryPreferences().theme);
-      return;
-    }
+    if (!prefsHydrated) return;
     applyThemeToDocument(state.theme);
   }, [prefsHydrated, state.theme]);
 
@@ -660,6 +707,20 @@ export function FontLibraryProvider({ children }: { children: ReactNode }) {
     dispatch({ type: "SET_PREVIEW_BG_COLOR", color });
   }, []);
 
+  const getPreferencesSnapshot = useCallback(
+    () => prefsFromState(state),
+    [state],
+  );
+
+  const replacePreferences = useCallback(
+    async (prefs: LibraryPreferences) => {
+      dispatch({ type: "HYDRATE_PREFS", prefs });
+      applyThemeToDocument(prefs.theme);
+      await store.save(prefs);
+    },
+    [store],
+  );
+
   const value = useMemo(
     () => ({
       state,
@@ -688,6 +749,8 @@ export function FontLibraryProvider({ children }: { children: ReactNode }) {
       setThemeMode,
       setPreviewColor,
       setPreviewBgColor,
+      getPreferencesSnapshot,
+      replacePreferences,
     }),
     [
       state,
@@ -716,6 +779,8 @@ export function FontLibraryProvider({ children }: { children: ReactNode }) {
       setThemeMode,
       setPreviewColor,
       setPreviewBgColor,
+      getPreferencesSnapshot,
+      replacePreferences,
     ],
   );
 

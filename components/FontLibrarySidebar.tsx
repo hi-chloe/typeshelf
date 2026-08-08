@@ -2,6 +2,7 @@
 
 import { FontFamilyListItem } from "./FontFamilyListItem";
 import { FontUploadZone } from "./FontUploadZone";
+import { PreferencesBackup } from "./PreferencesBackup";
 import { SystemFontBanner } from "./SystemFontBanner";
 import { ThemeControls } from "./ThemeControls";
 import {
@@ -299,6 +300,7 @@ export function FontLibrarySidebar() {
       ) : null}
 
       <ThemeControls />
+      <PreferencesBackup />
     </aside>
   );
 }

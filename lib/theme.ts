@@ -86,10 +86,12 @@ export function applyThemeToDocument(theme: ThemePreferences): void {
 
 /**
  * Blocking inline boot script for app/layout.tsx <head>.
- * Must stay in sync with LIBRARY_PREFS_KEY / ThemePreferences shape.
+ * Tries the canonical Typeshelf key first, then legacy font-explorer keys
+ * (migration leaves those in place for one release).
  */
-export function getThemeBootScript(storageKey: string): string {
+export function getThemeBootScript(storageKeys: readonly string[]): string {
   const schemes = JSON.stringify(COLOR_SCHEMES);
   const modes = JSON.stringify(THEME_MODES);
-  return `(function(){try{var schemes=${schemes};var modes=${modes};var scheme="ember";var modePref="system";var raw=localStorage.getItem(${JSON.stringify(storageKey)});if(raw){var data=JSON.parse(raw);if(data&&data.theme){if(schemes.indexOf(data.theme.scheme)!==-1)scheme=data.theme.scheme;if(modes.indexOf(data.theme.mode)!==-1)modePref=data.theme.mode}}var mode=modePref==="system"?(window.matchMedia("(prefers-color-scheme: dark)").matches?"dark":"light"):modePref;var root=document.documentElement;root.setAttribute("data-scheme",scheme);root.setAttribute("data-mode",mode)}catch(e){}})()`;
+  const keys = JSON.stringify(storageKeys);
+  return `(function(){try{var schemes=${schemes};var modes=${modes};var keys=${keys};var scheme="ember";var modePref="system";for(var i=0;i<keys.length;i++){var raw=localStorage.getItem(keys[i]);if(!raw)continue;try{var data=JSON.parse(raw);if(data&&data.theme){if(schemes.indexOf(data.theme.scheme)!==-1)scheme=data.theme.scheme;if(modes.indexOf(data.theme.mode)!==-1)modePref=data.theme.mode;break}}catch(_e){}}var mode=modePref==="system"?(window.matchMedia("(prefers-color-scheme: dark)").matches?"dark":"light"):modePref;var root=document.documentElement;root.setAttribute("data-scheme",scheme);root.setAttribute("data-mode",mode)}catch(e){}})()`;
 }
