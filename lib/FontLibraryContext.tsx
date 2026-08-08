@@ -5,6 +5,7 @@ import {
   useCallback,
   useContext,
   useEffect,
+  useLayoutEffect,
   useMemo,
   useReducer,
   useState,
@@ -16,6 +17,13 @@ import {
   saveLibraryPreferences,
   type LibraryPreferences,
 } from "./libraryPersistence";
+import {
+  applyThemeToDocument,
+  DEFAULT_THEME,
+  type ColorScheme,
+  type ThemeMode,
+  type ThemePreferences,
+} from "./theme";
 import type { BuiltinCategory, FontEntry, ParseWarning } from "./types";
 import { BUILTIN_CATEGORIES, FAVORITES_SECTION } from "./types";
 
@@ -46,6 +54,17 @@ type LibraryState = {
    */
   categoryOverrides: Record<string, string>;
   searchQuery: string;
+  theme: ThemePreferences;
+  /**
+   * Preview specimen text color. `null` follows the theme `--ink` token so
+   * theme switches recolor the specimen; a hex pins until reset.
+   */
+  previewColor: string | null;
+  /**
+   * Preview surface background. `null` follows `--preview-bg`; a hex pins
+   * until reset.
+   */
+  previewBgColor: string | null;
 };
 
 type Action =
@@ -68,7 +87,25 @@ type Action =
   | { type: "DELETE_CATEGORY"; name: string }
   | { type: "SET_FAMILY_CATEGORY"; family: string; category: string | null }
   | { type: "SET_SEARCH_QUERY"; query: string }
+  | { type: "SET_COLOR_SCHEME"; scheme: ColorScheme }
+  | { type: "SET_THEME_MODE"; mode: ThemeMode }
+  | { type: "SET_PREVIEW_COLOR"; color: string | null }
+  | { type: "SET_PREVIEW_BG_COLOR"; color: string | null }
   | { type: "HYDRATE_PREFS"; prefs: LibraryPreferences };
+
+/** Hard ranges for typed metrics (sliders use tighter UI ranges). */
+export const FONT_SIZE_HARD_MIN = 4;
+export const FONT_SIZE_HARD_MAX = 800;
+export const FONT_SIZE_SLIDER_MIN = 12;
+export const FONT_SIZE_SLIDER_MAX = 120;
+export const LETTER_SPACING_HARD_MIN = -20;
+export const LETTER_SPACING_HARD_MAX = 200;
+export const LETTER_SPACING_SLIDER_MIN = -5;
+export const LETTER_SPACING_SLIDER_MAX = 20;
+
+function clamp(n: number, min: number, max: number): number {
+  return Math.min(max, Math.max(min, n));
+}
 
 function fontKey(family: string, style: string): string {
   return `${family.trim().toLowerCase()}::${style.trim().toLowerCase()}`;
@@ -104,6 +141,9 @@ const initialState: LibraryState = {
   customCategories: [],
   categoryOverrides: {},
   searchQuery: "",
+  theme: { ...DEFAULT_THEME },
+  previewColor: null,
+  previewBgColor: null,
 };
 
 function reducer(state: LibraryState, action: Action): LibraryState {
@@ -175,9 +215,19 @@ function reducer(state: LibraryState, action: Action): LibraryState {
     case "SET_PREVIEW_TEXT":
       return { ...state, previewText: action.text };
     case "SET_FONT_SIZE":
-      return { ...state, fontSize: action.size };
+      return {
+        ...state,
+        fontSize: clamp(action.size, FONT_SIZE_HARD_MIN, FONT_SIZE_HARD_MAX),
+      };
     case "SET_LETTER_SPACING":
-      return { ...state, letterSpacingPercent: action.percent };
+      return {
+        ...state,
+        letterSpacingPercent: clamp(
+          action.percent,
+          LETTER_SPACING_HARD_MIN,
+          LETTER_SPACING_HARD_MAX,
+        ),
+      };
     case "SET_LOADING":
       return {
         ...state,
@@ -239,12 +289,29 @@ function reducer(state: LibraryState, action: Action): LibraryState {
     }
     case "SET_SEARCH_QUERY":
       return { ...state, searchQuery: action.query };
+    case "SET_COLOR_SCHEME":
+      return {
+        ...state,
+        theme: { ...state.theme, scheme: action.scheme },
+      };
+    case "SET_THEME_MODE":
+      return {
+        ...state,
+        theme: { ...state.theme, mode: action.mode },
+      };
+    case "SET_PREVIEW_COLOR":
+      return { ...state, previewColor: action.color };
+    case "SET_PREVIEW_BG_COLOR":
+      return { ...state, previewBgColor: action.color };
     case "HYDRATE_PREFS":
       return {
         ...state,
         favorites: action.prefs.favorites,
         customCategories: action.prefs.customCategories,
         categoryOverrides: action.prefs.categoryOverrides,
+        theme: action.prefs.theme,
+        previewColor: action.prefs.previewColor,
+        previewBgColor: action.prefs.previewBgColor,
       };
     default:
       return state;
@@ -292,6 +359,10 @@ type FontLibraryContextValue = {
   deleteCategory: (name: string) => void;
   setFamilyCategory: (family: string, category: string | null) => void;
   setSearchQuery: (query: string) => void;
+  setColorScheme: (scheme: ColorScheme) => void;
+  setThemeMode: (mode: ThemeMode) => void;
+  setPreviewColor: (color: string | null) => void;
+  setPreviewBgColor: (color: string | null) => void;
 };
 
 const FontLibraryContext = createContext<FontLibraryContextValue | null>(null);
@@ -312,7 +383,7 @@ export function FontLibraryProvider({ children }: { children: ReactNode }) {
   const [state, dispatch] = useReducer(reducer, initialState);
   const [prefsHydrated, setPrefsHydrated] = useState(false);
 
-  // Hydrate after mount so SSR HTML matches the first client paint.
+  // Hydrate after mount so SSR HTML matches the first client paint for org prefs.
   useEffect(() => {
     dispatch({ type: "HYDRATE_PREFS", prefs: loadLibraryPreferences() });
     setPrefsHydrated(true);
@@ -324,13 +395,41 @@ export function FontLibraryProvider({ children }: { children: ReactNode }) {
       favorites: state.favorites,
       customCategories: state.customCategories,
       categoryOverrides: state.categoryOverrides,
+      theme: state.theme,
+      previewColor: state.previewColor,
+      previewBgColor: state.previewBgColor,
     });
   }, [
     prefsHydrated,
     state.favorites,
     state.customCategories,
     state.categoryOverrides,
+    state.theme,
+    state.previewColor,
+    state.previewBgColor,
   ]);
+
+  /*
+   * Apply data-scheme / data-mode on <html>.
+   * Before prefs hydrate, re-read storage (mirrors the FOUC boot script) so
+   * React Strict Mode remounts don't wipe the correct theme with defaults.
+   */
+  useLayoutEffect(() => {
+    if (!prefsHydrated) {
+      applyThemeToDocument(loadLibraryPreferences().theme);
+      return;
+    }
+    applyThemeToDocument(state.theme);
+  }, [prefsHydrated, state.theme]);
+
+  // Live-update when OS prefers-color-scheme changes and mode is "system".
+  useEffect(() => {
+    if (!prefsHydrated || state.theme.mode !== "system") return;
+    const mq = window.matchMedia("(prefers-color-scheme: dark)");
+    const onChange = () => applyThemeToDocument(state.theme);
+    mq.addEventListener("change", onChange);
+    return () => mq.removeEventListener("change", onChange);
+  }, [prefsHydrated, state.theme]);
 
   const familiesByName = useMemo(() => {
     const byFamily = new Map<string, FontEntry[]>();
@@ -545,6 +644,22 @@ export function FontLibraryProvider({ children }: { children: ReactNode }) {
     dispatch({ type: "SET_SEARCH_QUERY", query });
   }, []);
 
+  const setColorScheme = useCallback((scheme: ColorScheme) => {
+    dispatch({ type: "SET_COLOR_SCHEME", scheme });
+  }, []);
+
+  const setThemeMode = useCallback((mode: ThemeMode) => {
+    dispatch({ type: "SET_THEME_MODE", mode });
+  }, []);
+
+  const setPreviewColor = useCallback((color: string | null) => {
+    dispatch({ type: "SET_PREVIEW_COLOR", color });
+  }, []);
+
+  const setPreviewBgColor = useCallback((color: string | null) => {
+    dispatch({ type: "SET_PREVIEW_BG_COLOR", color });
+  }, []);
+
   const value = useMemo(
     () => ({
       state,
@@ -569,6 +684,10 @@ export function FontLibraryProvider({ children }: { children: ReactNode }) {
       deleteCategory,
       setFamilyCategory,
       setSearchQuery,
+      setColorScheme,
+      setThemeMode,
+      setPreviewColor,
+      setPreviewBgColor,
     }),
     [
       state,
@@ -593,6 +712,10 @@ export function FontLibraryProvider({ children }: { children: ReactNode }) {
       deleteCategory,
       setFamilyCategory,
       setSearchQuery,
+      setColorScheme,
+      setThemeMode,
+      setPreviewColor,
+      setPreviewBgColor,
     ],
   );
 

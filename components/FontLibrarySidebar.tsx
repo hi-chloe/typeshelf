@@ -3,6 +3,7 @@
 import { FontFamilyListItem } from "./FontFamilyListItem";
 import { FontUploadZone } from "./FontUploadZone";
 import { SystemFontBanner } from "./SystemFontBanner";
+import { ThemeControls } from "./ThemeControls";
 import {
   useFontLibrary,
   type LibrarySection,
@@ -202,7 +203,7 @@ export function FontLibrarySidebar() {
               <button
                 type="button"
                 onClick={submitNewCategory}
-                className="rounded bg-[var(--accent-strong)] px-2 py-1 text-xs font-medium text-white"
+                className="rounded bg-[var(--accent-strong)] px-2 py-1 text-xs font-medium text-[var(--on-accent)]"
               >
                 Create
               </button>
@@ -296,6 +297,8 @@ export function FontLibrarySidebar() {
             : ""}
         </p>
       ) : null}
+
+      <ThemeControls />
     </aside>
   );
 }

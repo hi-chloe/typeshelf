@@ -1,6 +1,16 @@
 @import "tailwindcss";
 
+/*
+  Theme system = pure token swapping via data-scheme × data-mode on <html>.
+  Do NOT add dark: variants in components. :root is light/ember so a missing
+  boot script still paints a usable page.
+*/
+
+/* Contrast (ember light / :root): ink/bg 14.60, ink/surf 13.36, ink/prev 14.86;
+   muted/bg 5.54, muted/surf 5.07; faint/surf 3.39; strong/bg 6.26, strong/soft 5.39;
+   warns/warnsoft 5.08; on/strong 6.42; acc/bg 3.55, border/bg 3.45 */
 :root {
+  color-scheme: light;
   --background: #fdfcfa;
   --foreground: #2b2622; /* = --ink */
   --ink: #2b2622;
@@ -10,14 +20,182 @@
   --surface: #f7f1ec;
   --surface-muted: #f5efe9;
   --preview-bg: #fffefd;
-  --border: #e3ddd6;
+  --border: #8f877f;
   --accent: #d9614f; /* decorative only — not for text */
-  --accent-strong: #b85243; /* accent-colored text + white-text button fills */
-  --accent-soft: #f3d9d4;
+  --accent-strong: #9c4336; /* accent-colored text + on-accent button fills */
+  --accent-soft: #f7e8e4;
+  --on-accent: #ffffff;
   --warn: #c98a2c; /* decorative only — not for text */
-  --warn-strong: #966721; /* warning/error text */
+  --warn-strong: #855a1c; /* warning/error text */
   --warn-soft: #f6ead6;
   --warn-border: #e8cf9f;
+  --glow-1: #f3efe6;
+  --glow-2: #d9e8e2;
+}
+
+/* ── Light-mode scheme accents (neutrals stay on :root) ── */
+
+/* Contrast: strong/bg 6.34, strong/soft 5.32; on/strong 6.50; acc/bg 4.03 */
+[data-scheme="azure"] {
+  --accent: #3d7ecf;
+  --accent-strong: #2a5ea3;
+  --accent-soft: #dceaf8;
+  --on-accent: #ffffff;
+  --glow-1: #e6eef8;
+  --glow-2: #d4e8f2;
+}
+
+/* Contrast: strong/bg 6.21, strong/soft 5.30; on/strong 6.36; acc/bg 3.88 */
+[data-scheme="verdant"] {
+  --accent: #3d8f5c;
+  --accent-strong: #2d6b45;
+  --accent-soft: #d8f0e2;
+  --on-accent: #ffffff;
+  --glow-1: #e8f3ea;
+  --glow-2: #d4ebe0;
+}
+
+/* Contrast: strong/bg 7.13, strong/soft 5.68; on/strong 7.31; acc/bg 4.81 */
+[data-scheme="amethyst"] {
+  --accent: #8b5bb5;
+  --accent-strong: #6d4393;
+  --accent-soft: #ecdef5;
+  --on-accent: #ffffff;
+  --glow-1: #f0e8f6;
+  --glow-2: #e0d8f0;
+}
+
+/* Contrast: strong/bg 6.93, strong/soft 5.56; on/strong 7.11; acc/bg 4.78 */
+[data-scheme="garnet"] {
+  --accent: #c44545;
+  --accent-strong: #9c3434;
+  --accent-soft: #f6dede;
+  --on-accent: #ffffff;
+  --glow-1: #f5e6e6;
+  --glow-2: #ecd8d8;
+}
+
+/*
+  Spectrum (multicolor) — fixed rainbow roles, stable across loads.
+  Neutrals stay single-hue. Accent roles each pick a different hue so the
+  UI reads as multicolor without randomizing: --accent coral (decorative /
+  focus), --accent-strong indigo (text + fills), --accent-soft lilac,
+  --glow-1 teal + --glow-2 gold. Every text/accent pair clears 4.5:1;
+  decorative accent clears 3:1 on --background.
+  Contrast: strong/bg 7.90, strong/soft 6.38; on/strong 8.10; acc/bg 3.60
+*/
+[data-scheme="spectrum"] {
+  --accent: #d95a7a;
+  --accent-strong: #5b3d9c;
+  --accent-soft: #ebe0f7;
+  --on-accent: #ffffff;
+  --glow-1: #d4ebe8;
+  --glow-2: #f3e6d0;
+}
+
+/* Ember light is the :root default; keep an explicit block for symmetry. */
+/* Contrast: same as :root */
+[data-scheme="ember"] {
+  --accent: #d9614f;
+  --accent-strong: #9c4336;
+  --accent-soft: #f7e8e4;
+  --on-accent: #ffffff;
+  --glow-1: #f3efe6;
+  --glow-2: #d9e8e2;
+}
+
+[data-mode="light"] {
+  color-scheme: light;
+}
+
+/*
+  Dark neutrals (shared). --on-accent flips to near-ink so light accent-strong
+  fills keep legible button labels (accent-strong is text-on-dark AND fill).
+  Contrast (ember dark): ink/bg 15.24, ink/surf 13.81, ink/prev 14.45;
+  muted/bg 7.84, muted/surf 7.10; faint/surf 4.43; strong/bg 8.61, strong/soft 5.92;
+  warns/warnsoft 6.86; on/strong 8.52; acc/bg 6.09, border/bg 4.67
+*/
+[data-mode="dark"] {
+  color-scheme: dark;
+  --background: #1a1714;
+  --foreground: #f3ece4;
+  --ink: #f3ece4;
+  --ink-muted: #b5aaa0;
+  --ink-faint: #8f847a;
+  --surface: #24201c;
+  --surface-muted: #2a2520;
+  --preview-bg: #201c18;
+  --border: #8a8178;
+  --accent: #e07a6a;
+  --accent-strong: #f0a090;
+  --accent-soft: #4a2e28;
+  --on-accent: #1c1814;
+  --warn: #c9a04a;
+  --warn-strong: #e0b56a;
+  --warn-soft: #3a2f1a;
+  --warn-border: #6a5530;
+  --glow-1: #2a2218;
+  --glow-2: #1a2824;
+}
+
+/* Contrast: strong/bg 9.54, strong/soft 6.86; on/strong 9.43; acc/bg 6.49 */
+[data-mode="dark"][data-scheme="azure"] {
+  --accent: #6a9fdf;
+  --accent-strong: #9dc0ef;
+  --accent-soft: #1e334d;
+  --on-accent: #1c1814;
+  --glow-1: #1a2430;
+  --glow-2: #182830;
+}
+
+/* Contrast: strong/bg 10.34, strong/soft 7.18; on/strong 10.22; acc/bg 7.30 */
+[data-mode="dark"][data-scheme="verdant"] {
+  --accent: #6ab58a;
+  --accent-strong: #8fd4aa;
+  --accent-soft: #1e3a2a;
+  --on-accent: #1c1814;
+  --glow-1: #1a2820;
+  --glow-2: #182820;
+}
+
+/* Contrast: strong/bg 9.44, strong/soft 7.42; on/strong 9.33; acc/bg 6.40 */
+[data-mode="dark"][data-scheme="amethyst"] {
+  --accent: #b48ad4;
+  --accent-strong: #d0b0ec;
+  --accent-soft: #352448;
+  --on-accent: #1c1814;
+  --glow-1: #241828;
+  --glow-2: #201828;
+}
+
+/* Contrast: strong/bg 8.70, strong/soft 6.64; on/strong 8.60; acc/bg 5.71 */
+[data-mode="dark"][data-scheme="garnet"] {
+  --accent: #e07070;
+  --accent-strong: #f0a0a0;
+  --accent-soft: #4a2222;
+  --on-accent: #1c1814;
+  --glow-1: #2a1818;
+  --glow-2: #281818;
+}
+
+/* Contrast: strong/bg 8.55, strong/soft 6.88; on/strong 8.45; acc/bg 6.45 */
+[data-mode="dark"][data-scheme="spectrum"] {
+  --accent: #e8789a;
+  --accent-strong: #c4a6f0;
+  --accent-soft: #2e2448;
+  --on-accent: #1c1814;
+  --glow-1: #1a2828;
+  --glow-2: #2a2418;
+}
+
+/* Contrast: same as [data-mode="dark"] base (ember) */
+[data-mode="dark"][data-scheme="ember"] {
+  --accent: #e07a6a;
+  --accent-strong: #f0a090;
+  --accent-soft: #4a2e28;
+  --on-accent: #1c1814;
+  --glow-1: #2a2218;
+  --glow-2: #1a2824;
 }
 
 @theme inline {
@@ -27,10 +205,24 @@
 
 body {
   background:
-    radial-gradient(1200px 600px at 10% -10%, #f3efe6 0%, transparent 55%),
-    radial-gradient(900px 500px at 100% 0%, #d9e8e2 0%, transparent 50%),
+    radial-gradient(1200px 600px at 10% -10%, var(--glow-1) 0%, transparent 55%),
+    radial-gradient(900px 500px at 100% 0%, var(--glow-2) 0%, transparent 50%),
     var(--background);
   color: var(--foreground);
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  html {
+    transition: color 0.2s ease, background-color 0.2s ease;
+  }
+
+  body,
+  aside {
+    transition:
+      color 0.2s ease,
+      background-color 0.2s ease,
+      border-color 0.2s ease;
+  }
 }
 
 input[type="range"] {
