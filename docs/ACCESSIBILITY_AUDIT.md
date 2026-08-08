@@ -1,185 +1,149 @@
 # Typeshelf — WCAG 2.1 AA audit
 
-Audited at commit `e75668c` (after the theme, preview-color, variant, and persistence work).
-Method: source review of all 8 components + independent recomputation of every color pair
+**Status: all 12 findings resolved.** Audited at `e75668c`, remediated across `a1a2614`
+and `01a5881`, guardrails added in `856a3ab`.
+
+Method: source review of all components plus independent recomputation of every color pair
 using the WCAG 2.x relative-luminance formula. Ratios below are computed, not estimated.
+Findings are kept rather than deleted — what was wrong and why is the useful part.
 
-**Result: 3 blocking failures, 4 moderate, 5 minor.** No failure is in the theme token
-system — that part holds up. Everything blocking is in keyboard navigation and DOM
-semantics, which is the usual pattern when styling gets audited but structure doesn't.
-
----
-
-## Blocking (fix before any public link)
-
-### B1 — No skip link. Sidebar traps keyboard users. `2.4.1 Bypass Blocks (Level A)`
-
-`app/page.tsx` renders `<FontLibrarySidebar />` before `<PreviewPane />`, and every font
-row in `FontFamilyListItem.tsx` contains **three** tab stops: the favorite star (L94), the
-family button (L113), and the category select (L139).
-
-With uploaded fonts that's tolerable. With "Load my installed fonts" on Chrome — the
-feature the app advertises — `queryLocalFonts()` commonly returns 300–1,000+ faces. At
-~200–400 families that is **600–1,200 tab stops** before a keyboard user reaches the
-preview controls. There is no skip link anywhere in the app (grep confirms zero matches).
-
-This is the only Level A failure in the audit, and it's the one that would actually stop
-someone from using the tool.
-
-**Fix:** add a visually-hidden-until-focused "Skip to preview" link as the first focusable
-element in `layout.tsx`, targeting an `id` on `<main>`. Also give `<aside>` and `<main>`
-accessible names (`aria-label="Font library"` / `aria-label="Preview"`) so screen-reader
-users can jump by landmark instead.
-
-### B2 — Duplicate DOM ids break label association. `1.3.1`, `4.1.2`
-
-`FontFamilyListItem.tsx:136-140`
-
-```tsx
-<label className="sr-only" htmlFor={`cat-${family}`}>Category for {family}</label>
-<select id={`cat-${family}`} …>
-```
-
-A favorited font renders **twice** — once in the Favorites section, once in its category
-section (`FontLibraryContext.tsx` builds both lists from the same family). Both instances
-emit `id="cat-Inter"`. Duplicate ids mean `htmlFor` resolves to the first match only, so
-the second select has no accessible name at all.
-
-Family names also aren't id-safe — spaces, dots, and quotes in names like
-`"Noto Sans JP"` or `"P22 Underground"` produce fragile selectors.
-
-**Fix:** use `useId()` per instance. Never derive ids from user data.
-
-Same class of bug, lower severity: `ThemeControls.tsx:188` hardcodes
-`id="theme-mode-label"` instead of `useId()`.
-
-### B3 — Scheme menu announces `role="dialog"` but never moves focus. `4.1.2`, `2.4.3`
-
-`ThemeControls.tsx:124,156` — trigger declares `aria-haspopup="dialog"`, popup declares
-`role="dialog"`. But `selectScheme`/`setSchemeMenuOpen(true)` never move focus into the
-container, and there's no focus trap.
-
-A screen-reader user activates the trigger, hears "dialog", and focus is still on the
-button. Nothing tells them the swatches exist. Sighted keyboard users have to guess that
-Tab (not arrows) walks into it.
-
-**Fix:** this isn't a dialog, it's a popover containing a radiogroup. Drop `role="dialog"`
-and `aria-haspopup="dialog"`; move focus to the checked swatch on open. Escape/outside-click
-handling already works and should stay.
+| # | Finding | SC | Level | Status |
+|---|---------|----|-------|--------|
+| B1 | No skip link; sidebar traps keyboard users | 2.4.1 | A | Fixed |
+| B2 | Duplicate DOM ids break label association | 1.3.1, 4.1.2 | A/AA | Fixed |
+| B3 | Scheme menu announced `role="dialog"`, never moved focus | 4.1.2, 2.4.3 | A | Fixed |
+| M4 | Focus indicator was a border-color swap at 1.03:1 between states | 2.4.7 | AA | Fixed |
+| M5 | Category control was hover-only | 1.4.13 | AA | Fixed |
+| M6 | Hardcoded white inset shadow bled into dark mode | — | — | Fixed |
+| M7 | `--border` used as text color at 3.45:1 | 1.4.3 | AA | Fixed |
+| m8 | Selection check at 2.38:1 on the spectrum gold stop | 1.4.11 | AA | Fixed |
+| m9 | Radiogroups had no arrow-key navigation | 4.1.2 | A | Fixed |
+| m10 | Contrast readout had no programmatic association | 1.3.1 | A | Fixed |
+| m11 | Metric inputs didn't communicate their accepted range | 3.3.2 | A | Fixed |
+| m12 | File input nested inside `role="button"` | 4.1.2 | A | Fixed |
 
 ---
 
-## Moderate
+## What was wrong, and what changed
 
-### M4 — Focus indicator on text inputs is a border-color swap that's effectively invisible. `2.4.7`
+### B1 — Keyboard trap in the sidebar `2.4.1 Level A`
 
-`FontLibrarySidebar.tsx:161` (search) and `:198` (new category name) use
-`outline-none` with only `focus:border-[var(--accent)]`.
+Each font row carried three tab stops (favorite, family, category). With the Local Font
+Access API returning 300–1,000+ faces, that meant **600–1,200 tab stops** before a keyboard
+user could reach the preview controls. Theme controls sat *after* the list, so switching to
+dark mode meant tabbing the entire library.
 
-Computed contrast between the unfocused and focused border:
+**Fixed:** three skip links ("Skip to preview", "Skip to settings", "Skip past font list"),
+`id` + `tabIndex={-1}` targets on `<main>` and the settings group, and accessible names on
+both landmarks. Tab distance to any region is now fixed at 1 regardless of library size.
+
+DOM order was deliberately *not* reordered to put settings first — that would break 1.3.2
+Meaningful Sequence. Skip links are the correct tool.
+
+### B2 — Duplicate DOM ids `1.3.1`, `4.1.2`
+
+`id={`cat-${family}`}` collided whenever a font was favorited, because it renders in both
+the Favorites section and its category section. `htmlFor` resolved to the first match only,
+leaving the second control unnamed. Family names like `"Noto Sans JP"` also aren't id-safe.
+
+**Fixed:** `useId()` throughout. A guardrail now fails CI on any `id={\`...${...}\`}`.
+
+### B3 — Popover claimed to be a dialog `4.1.2`, `2.4.3`
+
+The scheme picker declared `role="dialog"` and `aria-haspopup="dialog"` but never moved
+focus into itself and had no focus trap. Screen-reader users heard "dialog" while focus
+stayed on the trigger.
+
+**Fixed:** it's a popover wrapping a radiogroup, so `role="dialog"` is gone and
+`aria-haspopup="true"` replaces it. Focus moves to the checked swatch on open and returns
+to the trigger on close.
+
+### M4 — Focus indicator invisible to low-vision users `2.4.7`
+
+Two sidebar inputs used `outline-none` with only `focus:border-[var(--accent)]`:
 
 | | unfocused → focused | ratio |
 |---|---|---|
 | Light | `#8f877f` → `#d9614f` | **1.03:1** |
 | Dark | `#8a8178` → `#e07a6a` | **1.30:1** |
 
-Those two states are, luminance-wise, nearly identical. The border *changes hue* but not
-lightness — so it reads as a focus indicator to a fully-sighted user and as nothing at all
-to a colorblind or low-vision user. It scrapes past 2.4.7 (which only demands "some"
-visible indicator) and fails 2.4.13 Focus Appearance outright.
+The border changed hue but not lightness. It read as a focus ring to a fully-sighted user
+and as nothing at all otherwise.
 
-Every other interactive element in the app already uses
-`focus-visible:ring-2 focus-visible:ring-[var(--ink)]` (13.4:1 light, 13.8:1 dark — excellent).
-These two inputs are just inconsistent.
+**Fixed:** both now use the app-wide `focus-visible:ring-2 ring-[var(--ink)]` treatment —
+13.4:1 light, 13.8:1 dark.
 
-**Fix:** apply the same ring treatment. It's a copy-paste.
+### M5 — Category assignment was mouse-only `1.4.13`
 
-### M5 — Category select is mouse-only in practice. `1.4.13`-adjacent, usability
+The control was `opacity-0` until row hover. Keyboard-reachable, but invisible until you
+hovered the exact row, and unreachable in principle for touch.
 
-`FontFamilyListItem.tsx:148` — `opacity-0 group-hover:opacity-100 focus:opacity-100`.
+**Fixed:** replaced with a persistent `⋯` trigger at `--ink-faint` (3.39:1) opening a
+`role="menu"` with `menuitemradio` options, roving tabindex, Escape-to-close, and focus
+return. Closes on list scroll so the fixed-position menu can't orphan from its row.
 
-It's keyboard-reachable and does become visible on focus, so it isn't a hard failure. But
-"move a font to a category" is a core feature that is **completely invisible** until you
-hover the exact row. Touch users have no hover state at all. Discoverability here is near
-zero regardless of ability.
+### M6, M7, m8 — token and contrast cleanup
 
-**Fix:** show it at `--ink-faint` persistently (3.39:1 — already cleared for icon chrome),
-or move category assignment into a row context menu with a visible trigger.
+- A hardcoded `rgba(255,255,255,0.4)` inset shadow painted a white hairline across the
+  preview surface in dark mode. Now `--inset-highlight`, defined per mode.
+- `·` separators used `--border` as text at 3.45:1 in light mode, under the 4.5:1 minimum.
+  `--border` is documented as a boundary token; this used it outside that contract.
+- The selection check was white on the spectrum swatch's gold stop at **2.38:1**. Now
+  carries a dark halo (`CHECK_HALO`) that holds ≥3:1 on every stop of the gradient.
 
-### M6 — Hardcoded white inset shadow on the preview surface. Dark mode artifact
+### m9–m12 — semantics
 
-`PreviewPane.tsx:273` — `shadow-[inset_0_1px_0_rgba(255,255,255,0.4)]`
-
-**I got this wrong last session.** I reported "zero hardcoded colors" based on a grep for
-Tailwind palette classes. This one is an arbitrary-value `rgba()` and slipped the pattern.
-In dark mode it paints a 40%-white hairline across the top of the preview box — a light-mode
-bevel surviving into a dark theme.
-
-**Fix:** tokenize as `--inset-highlight`, near-white in light mode and a low-alpha white or
-transparent in dark.
-
-### M7 — `--border` used as text color. `1.4.3`
-
-`PreviewPane.tsx:176,178` — the `·` separators between style / weight / source use
-`text-[var(--border)]`.
-
-| | ratio | text threshold |
-|---|---|---|
-| Light | **3.45:1** | fails 4.5:1 |
-| Dark | 4.67:1 | passes |
-
-Defensible as "pure decoration" since the metadata is separated by layout anyway — but
-`--border` is documented in `globals.css` as a boundary token, and this uses it outside
-that contract. Cheapest correct fix: `aria-hidden` the separators and switch them to
-`--ink-faint`, or drop them for flex `gap`.
+Arrow-key navigation and roving tabindex on both theme radiogroups; `aria-describedby`
+linking the contrast readout to both color triggers and the accepted range to the metric
+inputs; the file input hoisted out of `role="button"`.
 
 ---
 
-## Minor
+## Verified correct — independently recomputed
 
-- **m8** — `ThemeControls.tsx:34`: `CheckIcon` hardcodes `stroke="#ffffff"`. Against the swatch faces it clears 3:1 everywhere (ember 3.64, azure 4.13, verdant 3.98, amethyst 4.93, garnet 4.90) **except the spectrum gold stop `#d4a017` at 2.38:1**. The conic gradient means the check may land on gold depending on rotation. Selection is redundantly conveyed by `ring-2 ring-[var(--ink)]`, so this isn't a 1.4.1 failure — but add a dark stroke or a drop-shadow for the spectrum case.
-- **m9** — Both radiogroups in `ThemeControls.tsx` (schemes L169, modes L194) declare `role="radio"` children but have **no arrow-key handling and no roving tabindex**. Per WAI-ARIA APG a radiogroup is one tab stop navigated by arrows. `VariantChips.tsx` implements this correctly (L98–147) — `ThemeControls` should match it.
-- **m10** — `PreviewPane.tsx:253` — the contrast readout (`"4.8:1 · AA"`) is a bare `<span>` with no programmatic relationship to either color picker. Give it an id and `aria-describedby` from both `PreviewColorMenu` triggers.
-- **m11** — `PreviewPane.tsx:424` — the metric number inputs are `type="text"` + `inputMode="decimal"` (a good call — avoids number-spinner scroll bugs), but nothing communicates the accepted range. A keyboard user typing `900` silently gets clamped to 800. Add `aria-describedby` with "4 to 800".
-- **m12** — `FontUploadZone.tsx:41` — `role="button"` on a `<div>` with `tabIndex={0}` and an Enter/Space handler is implemented correctly, but if the `<input type="file">` is a descendant, nested interactive content inside `role="button"` is invalid. Verify and hoist the input out if so.
-
----
-
-## Verified correct — do not "fix" these
-
-Independently recomputed; all 32 ratios documented in `globals.css` are **exact**:
+All 32 contrast ratios documented in `app/globals.css` are **exact**:
 
 - Body text 14.60:1 light / 15.24:1 dark — AAA, not just AA.
 - `--ink-muted` 5.54 / 7.84 · `--ink-faint` 3.39 / 4.43 (icon-only, correct threshold).
 - All six schemes' `--accent-strong` clear 4.5:1 in both modes; lowest is verdant light at 6.21.
-- `--border` darkened from `#e3ddd6` (**1.2:1** — a live 1.4.11 failure that predated this work) to `#8f877f` at 3.45:1.
-- `accent-soft` fills sit at ~1.1:1 against neighbours. This looks alarming and **is fine** — the boundary is carried by `--border`, and selection is redundantly encoded via `border-2`, `font-semibold`, and a check glyph.
-- `VariantChips.tsx` roving tabindex + Home/End + arrow keys: textbook. Arrows move focus without selecting (Space/Enter commits) — non-standard for a radiogroup but deliberate here, since arrow-to-select would trigger a font load per keypress. Keep it; document it.
-- Live regions exist in the DOM before content changes (`PreviewPane.tsx:259`, `SystemFontBanner.tsx:79,84`, `PreferencesBackup.tsx:97`) — the common mistake is injecting the region with its content, which announces nothing. Not made here.
-- `prefers-reduced-motion` gating on theme transitions, `color-scheme` set per mode, `matchMedia` change subscription for system mode, cross-tab `storage` sync.
+- `--border` was darkened from `#e3ddd6` — **1.2:1**, a live 1.4.11 failure predating this
+  work — to `#8f877f` at 3.45:1.
+- `accent-soft` fills sit at ~1.1:1 against neighbours, which is correct: the boundary is
+  carried by `--border`, and selection is redundantly encoded via `border-2`,
+  `font-semibold`, and a check glyph.
+
+Deliberate asymmetry worth preserving: **variant chips** move focus with arrows but commit
+with Space/Enter, because arrow-to-select would trigger a font load per keypress. **Theme
+radiogroups** select on arrow, which is standard radio behavior. Both are commented in place.
 
 ---
 
-## Not WCAG, but ship-blocking
+## Not yet verified
 
-1. **No `LICENSE`.** Repo is public; absent a license it's all-rights-reserved and the open-source goal is unmet. MIT chosen — add `LICENSE` + a README license section.
-2. **No error boundary.** No `app/error.tsx` or `global-error.tsx`. The app parses arbitrary binary files from users; that's the highest-probability throw surface in the codebase and it currently white-screens.
-3. **Empty first-run state.** `"Your library is empty. Upload fonts to get started."` is what every portfolio visitor sees. Three OFL-licensed fonts already sit in `test/fixtures/fonts/` — wire a "Load sample fonts" button.
-4. **No CI.** Tests exist, nothing runs them.
-5. **No `metadataBase` / `openGraph`.** Shared links render bare.
-6. Five unreferenced Next.js boilerplate SVGs in `public/`.
+Honest gaps, tracked rather than glossed:
+
+1. **Skip-link paint under real `:focus-visible`.** The `sr-only focus:not-sr-only
+   focus:fixed` pattern depends on CSS cascade order between `not-sr-only` (`position:
+   static`) and `fixed` (`position: fixed`). Source review can't confirm which wins, and
+   `app/page.tsx` uses `md:overflow-hidden`, which can clip an absolutely-positioned link.
+   Needs a browser assertion that the focused link has a non-zero box inside the viewport.
+2. **No automated axe coverage.** All findings above came from source review. An axe pass
+   across all 12 scheme × mode combinations — including with popovers open — would catch
+   what reading misses.
+3. **Behavior at ~200 families is untested.** Keyboard access is now size-independent by
+   design, but render performance, 200 concurrent `IntersectionObserver` instances, and
+   whether `pinResidentFace` actually bounds `FontFace` residency across a full-list scroll
+   are all unverified.
+4. **`aria-controls` on the category menu** references a conditionally-rendered element, so
+   the IDREF doesn't resolve while closed. Low impact, technically invalid.
+
+Items 1–3 are specced in `docs/CURSOR_PROMPTS_HARDENING.md`.
 
 ---
 
-## Suggested order
+## Enforcement
 
-1. B1 skip link + landmark names — highest user impact, ~20 lines.
-2. B2 `useId()` — mechanical.
-3. M4 focus rings — copy-paste from existing pattern.
-4. B3 dialog→popover + m9 arrow keys — same file, do together.
-5. M6, M7, m8 — token cleanup, one pass.
-6. M5 — needs a design decision from you, not just a fix.
-7. m10–m12 — polish.
-
-Re-verify after: every `outline-none` must have a paired `focus-visible:ring-*`, and no
-`id={...}` may interpolate user data.
+`npm run verify` runs lint, typecheck, guardrails, and tests. `scripts/guardrails.mjs`
+fails CI on Tailwind palette classes, raw color literals outside two documented exemptions,
+and DOM ids built from user data — the three rules that regress silently and are invisible
+in review. Each exists because it has already been broken once.

@@ -55,7 +55,7 @@ carries its computed contrast ratio as a comment in
 [`app/globals.css`](./app/globals.css); body text clears **14.6:1** in light mode and
 **15.2:1** in dark (AAA).
 
-Current audit, including known open failures:
+A full WCAG 2.1 AA audit — 12 findings, all resolved, plus what remains unverified — is in
 [`docs/ACCESSIBILITY_AUDIT.md`](./docs/ACCESSIBILITY_AUDIT.md).
 
 CI enforces the parts that regress silently — no palette classes, no raw color literals, no
