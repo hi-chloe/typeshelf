@@ -10,7 +10,7 @@ import {
   useFontLibrary,
   type LibrarySection,
 } from "@/lib/FontLibraryContext";
-import { useId, useMemo, useState } from "react";
+import { useEffect, useId, useMemo, useRef, useState } from "react";
 
 function CategorySection({
   section,
@@ -121,6 +121,8 @@ export function FontLibrarySidebar() {
   const [categoryError, setCategoryError] = useState<string | null>(null);
   const newCategoryInputId = useId();
   const newCategoryErrorId = useId();
+  const newCategoryTriggerRef = useRef<HTMLButtonElement>(null);
+  const restoreNewCategoryFocusRef = useRef(false);
 
   const isOpen = (id: string) => openSections[id] ?? true;
 
@@ -134,6 +136,13 @@ export function FontLibrarySidebar() {
     return sections;
   }, [sections, state.searchQuery]);
 
+  const closeNewCategory = (opts?: { restoreFocus?: boolean }) => {
+    restoreNewCategoryFocusRef.current = opts?.restoreFocus !== false;
+    setNewCategoryOpen(false);
+    setNewCategoryName("");
+    setCategoryError(null);
+  };
+
   const submitNewCategory = () => {
     const ok = createCategory(newCategoryName);
     if (!ok) {
@@ -142,12 +151,17 @@ export function FontLibrarySidebar() {
       );
       return;
     }
-    setNewCategoryName("");
-    setNewCategoryOpen(false);
-    setCategoryError(null);
     const name = newCategoryName.trim().replace(/\s+/g, " ");
     setOpenSections((prev) => ({ ...prev, [name]: true }));
+    closeNewCategory({ restoreFocus: true });
   };
+
+  // Trigger is unmounted while the form is open — restore after it remounts.
+  useEffect(() => {
+    if (newCategoryOpen || !restoreNewCategoryFocusRef.current) return;
+    restoreNewCategoryFocusRef.current = false;
+    newCategoryTriggerRef.current?.focus();
+  }, [newCategoryOpen]);
 
   return (
     <aside
@@ -182,12 +196,17 @@ export function FontLibrarySidebar() {
 
         {!newCategoryOpen ? (
           <button
+            ref={newCategoryTriggerRef}
             type="button"
             onClick={() => {
               setNewCategoryOpen(true);
               setCategoryError(null);
             }}
-            className="w-full rounded-md border border-dashed border-[var(--border)] px-2 py-1.5 text-xs font-medium text-[var(--ink-muted)] transition-colors hover:border-[var(--accent)] hover:text-[var(--accent-strong)]"
+            className={[
+              "w-full rounded-md border border-dashed border-[var(--border)] px-2 py-1.5 text-xs font-medium text-[var(--ink-muted)] transition-colors outline-none",
+              "hover:border-[var(--accent)] hover:text-[var(--accent-strong)]",
+              "focus-visible:ring-2 focus-visible:ring-[var(--ink)] focus-visible:ring-offset-1 focus-visible:ring-offset-[var(--surface)]",
+            ].join(" ")}
           >
             + New category
           </button>
@@ -214,9 +233,8 @@ export function FontLibrarySidebar() {
                   submitNewCategory();
                 }
                 if (e.key === "Escape") {
-                  setNewCategoryOpen(false);
-                  setNewCategoryName("");
-                  setCategoryError(null);
+                  e.preventDefault();
+                  closeNewCategory({ restoreFocus: true });
                 }
               }}
               placeholder="e.g. Display"
@@ -240,18 +258,14 @@ export function FontLibrarySidebar() {
               <button
                 type="button"
                 onClick={submitNewCategory}
-                className="rounded bg-[var(--accent-strong)] px-2 py-1 text-xs font-medium text-[var(--on-accent)]"
+                className="rounded bg-[var(--accent-strong)] px-2 py-1 text-xs font-medium text-[var(--on-accent)] outline-none focus-visible:ring-2 focus-visible:ring-[var(--ink)] focus-visible:ring-offset-1 focus-visible:ring-offset-[var(--preview-bg)]"
               >
                 Create
               </button>
               <button
                 type="button"
-                onClick={() => {
-                  setNewCategoryOpen(false);
-                  setNewCategoryName("");
-                  setCategoryError(null);
-                }}
-                className="rounded px-2 py-1 text-xs text-[var(--ink-muted)] hover:text-[var(--ink)]"
+                onClick={() => closeNewCategory({ restoreFocus: true })}
+                className="rounded px-2 py-1 text-xs text-[var(--ink-muted)] outline-none hover:text-[var(--ink)] focus-visible:ring-2 focus-visible:ring-[var(--ink)] focus-visible:ring-offset-1 focus-visible:ring-offset-[var(--preview-bg)]"
               >
                 Cancel
               </button>
@@ -270,7 +284,11 @@ export function FontLibrarySidebar() {
               <button
                 type="button"
                 onClick={clearWarnings}
-                className="text-[10px] text-[var(--warn-strong)] underline-offset-2 hover:underline"
+                className={[
+                  "inline-flex min-h-6 items-center rounded px-1.5 text-[10px] font-medium text-[var(--warn-strong)] outline-none",
+                  "underline-offset-2 hover:underline",
+                  "focus-visible:ring-2 focus-visible:ring-[var(--ink)] focus-visible:ring-offset-1 focus-visible:ring-offset-[var(--warn-soft)]",
+                ].join(" ")}
               >
                 Clear
               </button>
@@ -286,7 +304,11 @@ export function FontLibrarySidebar() {
                     type="button"
                     aria-label="Dismiss warning"
                     onClick={() => dismissWarning(w.id)}
-                    className="shrink-0 text-[var(--ink-muted)] hover:text-[var(--warn-strong)]"
+                    className={[
+                      "inline-flex h-6 w-6 shrink-0 items-center justify-center rounded text-sm leading-none text-[var(--ink-muted)] outline-none",
+                      "hover:text-[var(--warn-strong)]",
+                      "focus-visible:ring-2 focus-visible:ring-[var(--ink)] focus-visible:ring-offset-1 focus-visible:ring-offset-[var(--warn-soft)]",
+                    ].join(" ")}
                   >
                     ×
                   </button>

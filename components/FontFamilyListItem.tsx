@@ -27,6 +27,38 @@ function clampIndex(next: number, length: number) {
   return Math.max(0, Math.min(length - 1, next));
 }
 
+const FOCUSABLE_SELECTOR = [
+  "a[href]",
+  "button:not([disabled])",
+  "input:not([disabled])",
+  "select:not([disabled])",
+  "textarea:not([disabled])",
+  '[tabindex]:not([tabindex="-1"])',
+].join(",");
+
+/** Move focus to the next/previous tab stop after a menu unmounts under Tab. */
+function focusAdjacent(
+  from: HTMLElement | null,
+  direction: "forward" | "backward",
+) {
+  if (!from || typeof document === "undefined") return;
+  const candidates = Array.from(
+    document.querySelectorAll<HTMLElement>(FOCUSABLE_SELECTOR),
+  ).filter((el) => {
+    if (el.getAttribute("aria-hidden") === "true") return false;
+    if (el.closest('[aria-hidden="true"]')) return false;
+    // offsetParent is null for fixed/hidden; keep fixed-position menus' siblings.
+    const style = window.getComputedStyle(el);
+    if (style.visibility === "hidden" || style.display === "none") return false;
+    return true;
+  });
+  const index = candidates.indexOf(from);
+  if (index < 0) return;
+  const next =
+    direction === "forward" ? candidates[index + 1] : candidates[index - 1];
+  next?.focus();
+}
+
 export function FontFamilyListItem({
   family,
   variants,
@@ -231,9 +263,17 @@ export function FontFamilyListItem({
         event.preventDefault();
         moveFocus(options.length - 1);
         break;
-      case "Tab":
-        closeMenu({ restoreFocus: false });
+      case "Tab": {
+        // Menu unmounts on close — without relocating first, focus dumps to <body>.
+        // Restore to the trigger, then step once in the Tab direction (APG).
+        event.preventDefault();
+        const direction = event.shiftKey ? "backward" : "forward";
+        closeMenu({ restoreFocus: true });
+        requestAnimationFrame(() => {
+          focusAdjacent(triggerRef.current, direction);
+        });
         break;
+      }
       case " ":
       case "Enter": {
         event.preventDefault();
@@ -307,7 +347,7 @@ export function FontFamilyListItem({
         aria-label={`Move ${family} to category`}
         aria-haspopup="menu"
         aria-expanded={menuOpen}
-        aria-controls={menuId}
+        aria-controls={menuOpen ? menuId : undefined}
         title="Move to category"
         onClick={(e) => {
           e.stopPropagation();
