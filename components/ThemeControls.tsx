@@ -25,6 +25,17 @@ const MODE_LABELS: Record<ThemeMode, string> = {
   system: "System",
 };
 
+/**
+ * Dark halo behind the selection check.
+ *
+ * allow-color-literal: swatch faces are fixed scheme previews (SCHEME_SWATCH in
+ * lib/theme.ts) and never change with the active theme, so the check drawn on them
+ * must not either. White alone is 2.38:1 on the spectrum gradient's gold stop —
+ * under the 3:1 non-text minimum. The halo carries it on every stop.
+ */
+// prettier-ignore
+const CHECK_HALO = "drop-shadow(0 0 0.6px rgba(0,0,0,0.9)) drop-shadow(0 0 1.2px rgba(0,0,0,0.75))";
+
 function CheckIcon() {
   return (
     <svg
@@ -32,16 +43,14 @@ function CheckIcon() {
       viewBox="0 0 16 16"
       className="h-3 w-3"
       fill="none"
-      // Fixed white on fixed swatch faces (scheme previews, not theme chrome).
-      // Dark halo keeps ≥3:1 on light stops (e.g. spectrum gold); ring also marks selection.
+      // allow-color-literal: swatch faces are fixed scheme previews (SCHEME_SWATCH in
+      // lib/theme.ts), not theme chrome — they do not change with the active theme, so
+      // the check drawn on them must not either.
       stroke="#ffffff"
       strokeWidth="2.25"
       strokeLinecap="round"
       strokeLinejoin="round"
-      style={{
-        filter:
-          "drop-shadow(0 0 0.6px rgba(0,0,0,0.9)) drop-shadow(0 0 1.2px rgba(0,0,0,0.75))",
-      }}
+      style={{ filter: CHECK_HALO }}
     >
       <path d="M3.5 8.5 6.5 11.5 12.5 4.5" />
     </svg>

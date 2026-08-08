@@ -1,0 +1,49 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+# Cancel superseded runs on the same branch — PRs get pushed to a lot.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    name: Lint, test, build
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install
+        run: npm ci
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      # Design-system rules that regress silently and are invisible in review.
+      # Each exists because it has already been broken once. See scripts/guardrails.mjs.
+      - name: Guardrails
+        run: npm run guardrails
+
+      - name: Test
+        run: npm run test
+
+      # Builds from the clean `npm ci` checkout above, so a file that is imported
+      # but never committed fails here rather than on someone else's clone.
+      # next/font/google fetches at build time, so this step needs network.
+      - name: Build
+        run: npm run build
