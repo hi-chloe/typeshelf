@@ -288,11 +288,16 @@ export function PreviewPane() {
             className="relative min-h-[200px] flex-1 overflow-auto rounded-xl border border-[var(--border)] p-6 shadow-[inset_0_1px_0_var(--inset-highlight)]"
             style={{ background: bgColor }}
           >
-            {faceErrorMessage ? (
-              <p className="text-sm text-[var(--warn-strong)]">{faceErrorMessage}</p>
-            ) : !faceReady ? (
-              <p className="text-sm text-[var(--ink-muted)]">Loading face…</p>
-            ) : (
+            <div aria-live="polite" aria-atomic="true">
+              {faceErrorMessage ? (
+                <p className="text-sm text-[var(--warn-strong)]">
+                  {faceErrorMessage}
+                </p>
+              ) : !faceReady ? (
+                <p className="text-sm text-[var(--ink-muted)]">Loading face…</p>
+              ) : null}
+            </div>
+            {faceReady && !faceErrorMessage ? (
               <p
                 style={{
                   fontFamily: `"${selectedFont.cssFamily}"`,
@@ -308,7 +313,7 @@ export function PreviewPane() {
               >
                 {state.previewText || "\u00A0"}
               </p>
-            )}
+            ) : null}
           </div>
         </>
       )}

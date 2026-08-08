@@ -47,3 +47,13 @@ jobs:
       # next/font/google fetches at build time, so this step needs network.
       - name: Build
         run: npm run build
+
+      # Browser smoke for skip-link paint + axe (light/dark). Requires the build above;
+      # playwright.config.ts starts `next start` as webServer.
+      - name: Install Playwright Chromium
+        run: npx playwright install --with-deps chromium
+
+      - name: A11y e2e
+        run: npm run test:e2e
+        env:
+          CI: true

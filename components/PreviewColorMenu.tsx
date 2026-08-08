@@ -12,12 +12,14 @@ import {
   type Cmyk,
   type Rgb,
 } from "@/lib/colorContrast";
+import { HsvColorPicker } from "./HsvColorPicker";
 import {
   useCallback,
   useEffect,
   useId,
   useRef,
   useState,
+  type KeyboardEvent as ReactKeyboardEvent,
 } from "react";
 
 export type ColorPreset = {
@@ -107,6 +109,10 @@ function resolveEffectiveHex(
   return resolveCssColor(themeCss) ?? "#000000";
 }
 
+function clampIndex(next: number, length: number) {
+  return Math.max(0, Math.min(length - 1, next));
+}
+
 export function PreviewColorMenu({
   label,
   value,
@@ -118,9 +124,12 @@ export function PreviewColorMenu({
 }: PreviewColorMenuProps) {
   const [open, setOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
+  const panelRef = useRef<HTMLDivElement>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
   const menuId = useId();
   const labelId = useId();
+  const presetButtonRefs = useRef<Array<HTMLButtonElement | null>>([]);
+  const [presetFocusIndex, setPresetFocusIndex] = useState(0);
 
   const [draftHex, setDraftHex] = useState(() =>
     resolveEffectiveHex(value, themeCss),
@@ -141,6 +150,37 @@ export function PreviewColorMenu({
     },
     [flushPending, onLiveChange],
   );
+
+  const closeMenu = useCallback(
+    (opts?: { restoreFocus?: boolean }) => {
+      const restoreFocus = opts?.restoreFocus !== false;
+      setOpenSafe(false);
+      if (restoreFocus) triggerRef.current?.focus();
+    },
+    [setOpenSafe],
+  );
+
+  /**
+   * Outside pointer: close, then restore focus only if it is still parked inside
+   * the (now aria-hidden) panel. If the click focused another control, leave it.
+   */
+  const closeFromOutsidePointer = useCallback(() => {
+    const focusInside = Boolean(
+      menuRef.current?.contains(document.activeElement),
+    );
+    setOpenSafe(false);
+    if (!focusInside) return;
+    requestAnimationFrame(() => {
+      const active = document.activeElement;
+      if (
+        !active ||
+        active === document.body ||
+        menuRef.current?.contains(active)
+      ) {
+        triggerRef.current?.focus();
+      }
+    });
+  }, [setOpenSafe]);
 
   const refreshPresetHexes = useCallback(() => {
     const next: Record<string, string> = {};
@@ -196,24 +236,55 @@ export function PreviewColorMenu({
       if (!target) return;
       if (menuRef.current?.contains(target)) return;
       if (triggerRef.current?.contains(target)) return;
-      setOpenSafe(false);
+      closeFromOutsidePointer();
     };
 
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key === "Escape") {
         event.preventDefault();
-        setOpenSafe(false);
-        triggerRef.current?.focus();
+        closeMenu({ restoreFocus: true });
       }
     };
 
+    // Tab away: dismiss without yanking focus back to the trigger.
+    const onFocusOut = (event: FocusEvent) => {
+      const next = event.relatedTarget as Node | null;
+      if (next && menuRef.current?.contains(next)) return;
+      closeMenu({ restoreFocus: false });
+    };
+
+    const root = menuRef.current;
     document.addEventListener("pointerdown", onPointerDown);
     document.addEventListener("keydown", onKeyDown);
+    root?.addEventListener("focusout", onFocusOut);
     return () => {
       document.removeEventListener("pointerdown", onPointerDown);
       document.removeEventListener("keydown", onKeyDown);
+      root?.removeEventListener("focusout", onFocusOut);
     };
-  }, [open, setOpenSafe]);
+  }, [open, closeMenu, closeFromOutsidePointer]);
+
+  /*
+    Move focus into the popover when it opens. Prefer the checked preset so
+    keyboard users land on the current selection (standard radiogroup open).
+  */
+  useEffect(() => {
+    if (!open) return;
+    const frame = requestAnimationFrame(() => {
+      const selected = panelRef.current?.querySelector<HTMLElement>(
+        '[role="radiogroup"] [role="radio"][aria-checked="true"]',
+      );
+      if (selected) {
+        selected.focus();
+        return;
+      }
+      const first = panelRef.current?.querySelector<HTMLElement>(
+        '[role="slider"], button, input',
+      );
+      first?.focus();
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [open]);
 
   const paintAndPersist = (hex: string, mode: "immediate" | "debounce") => {
     const next = normalizeHex(hex);
@@ -243,12 +314,73 @@ export function PreviewColorMenu({
   const cmyk = rgbToCmyk(rgb);
   const followingTheme = value === null;
 
+  const isPresetSelected = (preset: ColorPreset) =>
+    preset.followsTheme
+      ? followingTheme
+      : !followingTheme &&
+        !!presetHexes[preset.id] &&
+        normalizeHex(draftHex) === presetHexes[preset.id];
+
+  const selectedPresetIndex = Math.max(
+    0,
+    presets.findIndex((preset) => isPresetSelected(preset)),
+  );
+
+  // Keep roving focus aligned with the checked preset when selection changes.
+  const [prevSelectedPresetIndex, setPrevSelectedPresetIndex] =
+    useState(selectedPresetIndex);
+  if (selectedPresetIndex !== prevSelectedPresetIndex) {
+    setPrevSelectedPresetIndex(selectedPresetIndex);
+    setPresetFocusIndex(selectedPresetIndex);
+  }
+
+  const movePresetFocus = (next: number) => {
+    const clamped = clampIndex(next, presets.length);
+    setPresetFocusIndex(clamped);
+    const preset = presets[clamped];
+    if (preset) pickPreset(preset);
+    presetButtonRefs.current[clamped]?.focus();
+  };
+
+  // Presets are cheap to apply — arrow selects immediately (theme radiogroups).
+  const onPresetKeyDown = (event: ReactKeyboardEvent<HTMLDivElement>) => {
+    switch (event.key) {
+      case "ArrowRight":
+      case "ArrowDown":
+        event.preventDefault();
+        movePresetFocus(presetFocusIndex + 1);
+        break;
+      case "ArrowLeft":
+      case "ArrowUp":
+        event.preventDefault();
+        movePresetFocus(presetFocusIndex - 1);
+        break;
+      case "Home":
+        event.preventDefault();
+        movePresetFocus(0);
+        break;
+      case "End":
+        event.preventDefault();
+        movePresetFocus(presets.length - 1);
+        break;
+      case " ":
+      case "Enter": {
+        event.preventDefault();
+        const preset = presets[presetFocusIndex];
+        if (preset) pickPreset(preset);
+        break;
+      }
+      default:
+        break;
+    }
+  };
+
   return (
     <div className="relative" ref={menuRef}>
       <button
         ref={triggerRef}
         type="button"
-        aria-haspopup="dialog"
+        aria-haspopup="true"
         aria-expanded={open}
         aria-controls={menuId}
         aria-labelledby={labelId}
@@ -273,13 +405,14 @@ export function PreviewColorMenu({
       </button>
 
       <div
+        ref={panelRef}
         id={menuId}
-        role="dialog"
+        role="group"
         aria-labelledby={labelId}
         aria-hidden={!open}
         className={[
           "absolute left-0 top-[calc(100%+0.4rem)] z-30 w-[17.5rem] origin-top-left",
-          "rounded-lg border border-[var(--border)] bg-[var(--preview-bg)] p-3 shadow-[0_8px_24px_color-mix(in_srgb,var(--ink)_14%,transparent)]",
+          "rounded-xl border border-[var(--border)] bg-[var(--preview-bg)] p-3 shadow-[0_8px_24px_color-mix(in_srgb,var(--ink)_14%,transparent)]",
           "motion-safe:transition-[opacity,transform] motion-safe:duration-200 motion-safe:ease-out",
           open
             ? "pointer-events-auto translate-y-0 scale-100 opacity-100"
@@ -293,23 +426,24 @@ export function PreviewColorMenu({
           role="radiogroup"
           aria-label={`${label} presets`}
           className="mb-3 flex flex-wrap gap-1.5"
+          onKeyDown={onPresetKeyDown}
         >
-          {presets.map((preset) => {
-            const selected = preset.followsTheme
-              ? followingTheme
-              : !followingTheme &&
-                !!presetHexes[preset.id] &&
-                normalizeHex(draftHex) === presetHexes[preset.id];
+          {presets.map((preset, index) => {
+            const selected = isPresetSelected(preset);
             return (
               <button
                 key={preset.id}
+                ref={(el) => {
+                  presetButtonRefs.current[index] = el;
+                }}
                 type="button"
                 role="radio"
                 aria-checked={selected}
                 aria-label={preset.label}
                 title={preset.label}
-                tabIndex={open ? 0 : -1}
+                tabIndex={open && index === presetFocusIndex ? 0 : -1}
                 onClick={() => pickPreset(preset)}
+                onFocus={() => setPresetFocusIndex(index)}
                 className={[
                   "flex h-7 w-7 items-center justify-center rounded-full outline-none",
                   "focus-visible:ring-2 focus-visible:ring-[var(--ink)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--preview-bg)]",
@@ -327,17 +461,15 @@ export function PreviewColorMenu({
           Custom
         </p>
 
-        <div className="mb-2 flex items-center gap-2">
-          <label className="relative inline-flex h-8 w-8 shrink-0 cursor-pointer overflow-hidden rounded-md ring-1 ring-[var(--border)] focus-within:ring-2 focus-within:ring-[var(--ink)]">
-            <span className="sr-only">{label} color picker</span>
-            <input
-              type="color"
-              value={draftHex}
-              tabIndex={open ? 0 : -1}
-              onChange={(e) => paintAndPersist(e.target.value, "debounce")}
-              className="absolute inset-[-25%] h-[150%] w-[150%] cursor-pointer border-0 bg-transparent p-0"
-            />
-          </label>
+        <div className="mb-2 space-y-2">
+          <HsvColorPicker
+            label={label}
+            value={draftHex}
+            disabled={!open}
+            tabIndex={open ? 0 : -1}
+            onChange={(hex) => paintAndPersist(hex, "debounce")}
+            onCommit={(hex) => paintAndPersist(hex, "immediate")}
+          />
           <HexField
             value={draftHex}
             disabled={!open}
@@ -412,13 +544,16 @@ function HexField({
   disabled?: boolean;
   onCommit: (hex: string) => void;
 }) {
+  const errorId = useId();
   const [draft, setDraft] = useState(value);
   const [focused, setFocused] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const [prevValue, setPrevValue] = useState(value);
 
   if (!focused && value !== prevValue) {
     setPrevValue(value);
     setDraft(value);
+    setError(null);
   } else if (value !== prevValue) {
     setPrevValue(value);
   }
@@ -428,41 +563,56 @@ function HexField({
     if (isHexColor(raw)) {
       onCommit(normalizeHex(raw));
       setDraft(normalizeHex(raw));
+      setError(null);
       return;
     }
-    setDraft(value);
+    // Keep the typed value so the user can fix it; don't silently revert.
+    setError("Enter a valid hex color like #1a1a1a.");
   };
 
   return (
-    <label className="flex min-w-0 flex-1 items-center gap-1 text-[11px] text-[var(--ink-muted)]">
-      <span className="shrink-0 font-medium">HEX</span>
-      <input
-        type="text"
-        spellCheck={false}
-        disabled={disabled}
-        value={draft}
-        aria-label="Hex color"
-        onFocus={() => setFocused(true)}
-        onChange={(e) => setDraft(e.target.value)}
-        onBlur={() => {
-          setFocused(false);
-          commit();
-        }}
-        onKeyDown={(e) => {
-          if (e.key === "Enter") {
-            e.preventDefault();
+    <div className="min-w-0 flex-1 space-y-1">
+      <label className="flex min-w-0 items-center gap-1 text-[11px] text-[var(--ink-muted)]">
+        <span className="shrink-0 font-medium">HEX</span>
+        <input
+          type="text"
+          spellCheck={false}
+          disabled={disabled}
+          value={draft}
+          aria-label="Hex color"
+          aria-invalid={error ? true : undefined}
+          aria-describedby={error ? errorId : undefined}
+          onFocus={() => setFocused(true)}
+          onChange={(e) => {
+            setDraft(e.target.value);
+            setError(null);
+          }}
+          onBlur={() => {
+            setFocused(false);
             commit();
-            (e.target as HTMLInputElement).blur();
-          }
-          if (e.key === "Escape") {
-            e.preventDefault();
-            setDraft(value);
-            (e.target as HTMLInputElement).blur();
-          }
-        }}
-        className="h-7 min-h-7 min-w-0 flex-1 rounded border border-[var(--border)] bg-[var(--surface)] px-1.5 font-mono text-xs text-[var(--ink)] outline-none focus-visible:ring-2 focus-visible:ring-[var(--ink)] focus-visible:ring-offset-1 focus-visible:ring-offset-[var(--preview-bg)]"
-      />
-    </label>
+          }}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") {
+              e.preventDefault();
+              commit();
+              (e.target as HTMLInputElement).blur();
+            }
+            if (e.key === "Escape") {
+              e.preventDefault();
+              setDraft(value);
+              setError(null);
+              (e.target as HTMLInputElement).blur();
+            }
+          }}
+          className="h-7 min-h-7 min-w-0 flex-1 rounded-md border border-[var(--border)] bg-[var(--surface)] px-1.5 font-mono text-xs text-[var(--ink)] outline-none focus-visible:ring-2 focus-visible:ring-[var(--ink)] focus-visible:ring-offset-1 focus-visible:ring-offset-[var(--preview-bg)]"
+        />
+      </label>
+      {error ? (
+        <p id={errorId} role="alert" className="text-[10px] text-[var(--warn-strong)]">
+          {error}
+        </p>
+      ) : null}
+    </div>
   );
 }
 
@@ -538,7 +688,7 @@ function ChannelInput({
       type="text"
       inputMode="numeric"
       disabled={disabled}
-      aria-label={ariaLabel}
+      aria-label={`${ariaLabel}, 0 to ${max}`}
       value={draft}
       onFocus={() => setFocused(true)}
       onChange={(e) => {
@@ -561,7 +711,7 @@ function ChannelInput({
           (e.target as HTMLInputElement).blur();
         }
       }}
-      className="h-7 min-h-7 w-full rounded border border-[var(--border)] bg-[var(--surface)] px-1 text-center text-[11px] tabular-nums text-[var(--ink)] outline-none focus-visible:ring-2 focus-visible:ring-[var(--ink)] focus-visible:ring-offset-1 focus-visible:ring-offset-[var(--preview-bg)]"
+      className="h-7 min-h-7 w-full rounded-md border border-[var(--border)] bg-[var(--surface)] px-1 text-center text-[11px] tabular-nums text-[var(--ink)] outline-none focus-visible:ring-2 focus-visible:ring-[var(--ink)] focus-visible:ring-offset-1 focus-visible:ring-offset-[var(--preview-bg)]"
     />
   );
 }

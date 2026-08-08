@@ -56,6 +56,9 @@ export function SampleFontsButton() {
         return;
       }
       addFonts(entries, warnings);
+      // This control unmounts once the library is non-empty — move focus first
+      // so keyboard users are not dumped onto <body>.
+      document.getElementById("font-search")?.focus();
     } finally {
       setBusy(false);
       setLoading(false);

@@ -140,3 +140,67 @@ function clampPct(n: number): number {
 export function clampChannel(n: number): number {
   return Math.min(255, Math.max(0, Math.round(n)));
 }
+
+/* --------------------------------------------------------------------- HSV */
+
+/**
+ * HSV (not HSL) backs the custom picker.
+ *
+ * The familiar saturation/brightness rectangle IS the HSV colour solid: x maps
+ * to S and y to V, with hue fixed. HSL would need a skewed, hue-dependent shape
+ * for the same interaction, because HSL saturation behaves differently at the
+ * light and dark ends. Every mainstream picker uses HSV for this reason.
+ *
+ * h: 0-360, s: 0-1, v: 0-1
+ */
+export type Hsv = { h: number; s: number; v: number };
+
+export function rgbToHsv({ r, g, b }: Rgb): Hsv {
+  const rr = r / 255;
+  const gg = g / 255;
+  const bb = b / 255;
+
+  const max = Math.max(rr, gg, bb);
+  const min = Math.min(rr, gg, bb);
+  const d = max - min;
+
+  let h = 0;
+  if (d !== 0) {
+    if (max === rr) h = ((gg - bb) / d) % 6;
+    else if (max === gg) h = (bb - rr) / d + 2;
+    else h = (rr - gg) / d + 4;
+    h = (((h * 60) % 360) + 360) % 360;
+  }
+
+  return { h, s: max === 0 ? 0 : d / max, v: max };
+}
+
+export function hsvToRgb({ h, s, v }: Hsv): Rgb {
+  const hh = (((h % 360) + 360) % 360) / 60;
+  const c = v * s;
+  const x = c * (1 - Math.abs((hh % 2) - 1));
+  const m = v - c;
+
+  let rgb: [number, number, number];
+  if (hh < 1) rgb = [c, x, 0];
+  else if (hh < 2) rgb = [x, c, 0];
+  else if (hh < 3) rgb = [0, c, x];
+  else if (hh < 4) rgb = [0, x, c];
+  else if (hh < 5) rgb = [x, 0, c];
+  else rgb = [c, 0, x];
+
+  return {
+    r: clampChannel((rgb[0] + m) * 255),
+    g: clampChannel((rgb[1] + m) * 255),
+    b: clampChannel((rgb[2] + m) * 255),
+  };
+}
+
+export function hsvToHex(hsv: Hsv): string {
+  return rgbToHex(hsvToRgb(hsv));
+}
+
+export function hexToHsv(hex: string): Hsv | null {
+  const rgb = parseCssColorToRgb(hex);
+  return rgb ? rgbToHsv(rgb) : null;
+}

@@ -3,7 +3,6 @@
 A client-side font viewer. Browse, preview, and organize your fonts — **nothing is ever
 uploaded anywhere.** Font files are read, parsed, and rendered entirely in your browser.
 
-<!-- TODO: add a screenshot of the theme grid here before launch. -->
 
 ## Why it exists
 
@@ -35,10 +34,19 @@ Open [http://localhost:3000](http://localhost:3000). No font files on hand? Clic
 **Load 3 sample fonts**.
 
 ```bash
-npm run lint    # eslint
-npm run test    # vitest
-npm run build   # production build
+npm run verify   # lint + typecheck + guardrails + tests
+npm run build    # production build
 ```
+
+## Deploying
+
+The app is fully static-friendly and needs no backend. One optional environment variable:
+
+| Variable | Purpose |
+|----------|---------|
+| `NEXT_PUBLIC_SITE_URL` | Absolute origin (e.g. `https://typeshelf.example.com`). Drives Open Graph URLs. Defaults to `http://localhost:3000`, so set it in production or social previews will point at localhost. |
+
+No other configuration is required, and none of it affects local development.
 
 ## Stack
 

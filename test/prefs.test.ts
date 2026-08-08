@@ -33,7 +33,11 @@ describe("migratePreferences", () => {
       theme: { scheme: "azure", mode: "dark" },
     });
 
-    expect(prefs.theme).toEqual({ scheme: "azure", mode: "dark" });
+    expect(prefs.theme).toEqual({
+      scheme: "azure",
+      mode: "dark",
+      customSeed: "#4f7fd4",
+    });
     expect(prefs.previewColor).toBeNull();
     expect(prefs.previewBgColor).toBeNull();
   });
@@ -49,6 +53,7 @@ describe("migratePreferences", () => {
     expect(prefs.favorites).toEqual([]);
     expect(prefs.theme.scheme).toBe("ember");
     expect(prefs.theme.mode).toBe("dark");
+    expect(prefs.theme.customSeed).toBe("#4f7fd4");
     expect(prefs.previewColor).toBeNull();
     expect(prefs.previewBgColor).toBeNull();
   });
@@ -60,7 +65,7 @@ describe("export / import", () => {
       favorites: ["Recoleta"],
       customCategories: [],
       categoryOverrides: {},
-      theme: { scheme: "verdant", mode: "light" },
+      theme: { scheme: "verdant", mode: "light", customSeed: "#4f7fd4" },
       previewColor: "#112233",
       previewBgColor: null,
     });
@@ -100,7 +105,7 @@ describe("MemoryPreferencesStore", () => {
       favorites: ["A"],
       customCategories: [],
       categoryOverrides: {},
-      theme: { scheme: "garnet", mode: "system" },
+      theme: { scheme: "garnet", mode: "system", customSeed: "#4f7fd4" },
       previewColor: null,
       previewBgColor: null,
     });

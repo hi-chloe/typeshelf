@@ -58,7 +58,7 @@ export function PreferencesBackup() {
   };
 
   return (
-    <div className="space-y-1.5 border-t border-[var(--border)] pt-2.5">
+    <div className="space-y-1.5">
       <p className="text-[10px] font-semibold uppercase tracking-wide text-[var(--ink-muted)]">
         Settings
       </p>
@@ -88,7 +88,9 @@ export function PreferencesBackup() {
         ref={fileInputRef}
         type="file"
         accept="application/json,.json"
+        tabIndex={-1}
         className="sr-only"
+        aria-label="Import settings JSON"
         aria-describedby={statusId}
         onChange={(e) => void onImportFile(e.target.files?.[0])}
       />

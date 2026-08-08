@@ -12,6 +12,10 @@
 
 # testing
 /coverage
+/test-results/
+/playwright-report/
+/blob-report/
+/playwright/.cache/
 
 # next.js
 /.next/
@@ -42,4 +46,8 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 
+# Private working docs — kept outside the repo, listed here as a backstop
+# in case a copy is ever dropped back in.
 PORTFOLIO_PLAN.md
+CURSOR_PROMPTS*.md
+docs/CURSOR_PROMPTS*.md

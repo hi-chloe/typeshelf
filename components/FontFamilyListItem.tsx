@@ -78,16 +78,35 @@ export function FontFamilyListItem({
     options.findIndex((opt) => opt.value === selectValue),
   );
 
-  const closeMenu = useCallback(() => {
+  const closeMenu = useCallback((opts?: { restoreFocus?: boolean }) => {
+    const restoreFocus = opts?.restoreFocus !== false;
     setMenuOpen(false);
     setMenuPos(null);
-    triggerRef.current?.focus();
+    if (restoreFocus) triggerRef.current?.focus();
+  }, []);
+
+  const closeFromOutsidePointer = useCallback(() => {
+    const focusInside = Boolean(
+      menuRef.current?.contains(document.activeElement),
+    );
+    setMenuOpen(false);
+    setMenuPos(null);
+    if (!focusInside) return;
+    requestAnimationFrame(() => {
+      const active = document.activeElement;
+      if (
+        !active ||
+        active === document.body ||
+        menuRef.current?.contains(active)
+      ) {
+        triggerRef.current?.focus();
+      }
+    });
   }, []);
 
   const toggleMenu = useCallback(() => {
     if (menuOpen) {
-      setMenuOpen(false);
-      setMenuPos(null);
+      closeMenu({ restoreFocus: false });
       return;
     }
     const rect = triggerRef.current?.getBoundingClientRect();
@@ -99,7 +118,7 @@ export function FontFamilyListItem({
     }
     setFocusIndex(selectedIndex);
     setMenuOpen(true);
-  }, [menuOpen, selectedIndex]);
+  }, [menuOpen, selectedIndex, closeMenu]);
 
   useEffect(() => {
     const el = rowRef.current;
@@ -146,14 +165,13 @@ export function FontFamilyListItem({
       if (!target) return;
       if (menuRef.current?.contains(target)) return;
       if (triggerRef.current?.contains(target)) return;
-      setMenuOpen(false);
-      setMenuPos(null);
+      closeFromOutsidePointer();
     };
 
     const onKeyDown = (event: globalThis.KeyboardEvent) => {
       if (event.key === "Escape") {
         event.preventDefault();
-        closeMenu();
+        closeMenu({ restoreFocus: true });
       }
     };
 
@@ -163,7 +181,7 @@ export function FontFamilyListItem({
       document.removeEventListener("pointerdown", onPointerDown);
       document.removeEventListener("keydown", onKeyDown);
     };
-  }, [menuOpen, closeMenu]);
+  }, [menuOpen, closeMenu, closeFromOutsidePointer]);
 
   // Close on list scroll so a fixed menu doesn't orphan from its row.
   useEffect(() => {
@@ -171,12 +189,11 @@ export function FontFamilyListItem({
     const root = rowRef.current?.closest("[data-font-list]");
     if (!root) return;
     const onScroll = () => {
-      setMenuOpen(false);
-      setMenuPos(null);
+      closeMenu({ restoreFocus: true });
     };
     root.addEventListener("scroll", onScroll, { passive: true });
     return () => root.removeEventListener("scroll", onScroll);
-  }, [menuOpen]);
+  }, [menuOpen, closeMenu]);
 
   useEffect(() => {
     if (!menuOpen || !menuPos) return;
@@ -195,6 +212,7 @@ export function FontFamilyListItem({
   };
 
   // Menu pattern: arrows move focus; Enter/Space commits (unlike theme radiogroups).
+  // Tab closes without restoring — APG: Tab moves to the next page stop and closes.
   const onMenuKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
     switch (event.key) {
       case "ArrowDown":
@@ -213,13 +231,16 @@ export function FontFamilyListItem({
         event.preventDefault();
         moveFocus(options.length - 1);
         break;
+      case "Tab":
+        closeMenu({ restoreFocus: false });
+        break;
       case " ":
       case "Enter": {
         event.preventDefault();
         const opt = options[focusIndex];
         if (opt) {
           setFamilyCategory(family, opt.value || null);
-          closeMenu();
+          closeMenu({ restoreFocus: true });
         }
         break;
       }
@@ -328,7 +349,7 @@ export function FontFamilyListItem({
                 onClick={(e) => {
                   e.stopPropagation();
                   setFamilyCategory(family, opt.value || null);
-                  closeMenu();
+                  closeMenu({ restoreFocus: true });
                 }}
                 onFocus={() => setFocusIndex(index)}
                 className={[

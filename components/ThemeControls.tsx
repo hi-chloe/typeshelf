@@ -1,6 +1,7 @@
 "use client";
 
 import { useFontLibrary } from "@/lib/FontLibraryContext";
+import { HsvColorPicker } from "./HsvColorPicker";
 import {
   COLOR_SCHEMES,
   SCHEME_LABELS,
@@ -30,8 +31,8 @@ const MODE_LABELS: Record<ThemeMode, string> = {
  *
  * allow-color-literal: swatch faces are fixed scheme previews (SCHEME_SWATCH in
  * lib/theme.ts) and never change with the active theme, so the check drawn on them
- * must not either. White alone is 2.38:1 on the spectrum gradient's gold stop —
- * under the 3:1 non-text minimum. The halo carries it on every stop.
+ * must not either. The halo keeps the check at >=3:1 on light swatch faces,
+ * including a user-picked custom seed of any hue.
  */
 // prettier-ignore
 const CHECK_HALO = "drop-shadow(0 0 0.6px rgba(0,0,0,0.9)) drop-shadow(0 0 1.2px rgba(0,0,0,0.75))";
@@ -44,8 +45,8 @@ function CheckIcon() {
       className="h-3 w-3"
       fill="none"
       // allow-color-literal: swatch faces are fixed scheme previews (SCHEME_SWATCH in
-      // lib/theme.ts), not theme chrome — they do not change with the active theme, so
-      // the check drawn on them must not either.
+      // lib/theme.ts) or the user's custom seed — not theme chrome. They do not change
+      // with the active theme, so the check drawn on them must not either.
       stroke="#ffffff"
       strokeWidth="2.25"
       strokeLinecap="round"
@@ -90,8 +91,9 @@ function clampIndex(next: number, length: number) {
 }
 
 export function ThemeControls() {
-  const { state, setColorScheme, setThemeMode } = useFontLibrary();
-  const { scheme, mode } = state.theme;
+  const { state, setColorScheme, setThemeMode, setCustomSeed } =
+    useFontLibrary();
+  const { scheme, mode, customSeed } = state.theme;
   const [schemeMenuOpen, setSchemeMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
@@ -117,9 +119,32 @@ export function ThemeControls() {
     setModeFocusIndex(selectedModeIndex);
   }
 
-  const closeMenu = useCallback(() => {
+  const closeMenu = useCallback((opts?: { restoreFocus?: boolean }) => {
+    const restoreFocus = opts?.restoreFocus !== false;
     setSchemeMenuOpen(false);
-    triggerRef.current?.focus();
+    if (restoreFocus) triggerRef.current?.focus();
+  }, []);
+
+  /**
+   * Outside pointer: close, then restore focus only if it is still parked inside
+   * the (now aria-hidden) panel. If the click focused another control, leave it.
+   */
+  const closeFromOutsidePointer = useCallback(() => {
+    const focusInside = Boolean(
+      menuRef.current?.contains(document.activeElement),
+    );
+    setSchemeMenuOpen(false);
+    if (!focusInside) return;
+    requestAnimationFrame(() => {
+      const active = document.activeElement;
+      if (
+        !active ||
+        active === document.body ||
+        menuRef.current?.contains(active)
+      ) {
+        triggerRef.current?.focus();
+      }
+    });
   }, []);
 
   useEffect(() => {
@@ -130,23 +155,33 @@ export function ThemeControls() {
       if (!target) return;
       if (menuRef.current?.contains(target)) return;
       if (triggerRef.current?.contains(target)) return;
-      setSchemeMenuOpen(false);
+      closeFromOutsidePointer();
     };
 
     const onKeyDown = (event: globalThis.KeyboardEvent) => {
       if (event.key === "Escape") {
         event.preventDefault();
-        closeMenu();
+        closeMenu({ restoreFocus: true });
       }
     };
 
+    // Tab away: dismiss without yanking focus back to the trigger.
+    const onFocusOut = (event: FocusEvent) => {
+      const next = event.relatedTarget as Node | null;
+      if (next && menuRef.current?.contains(next)) return;
+      closeMenu({ restoreFocus: false });
+    };
+
+    const root = menuRef.current;
     document.addEventListener("pointerdown", onPointerDown);
     document.addEventListener("keydown", onKeyDown);
+    root?.addEventListener("focusout", onFocusOut);
     return () => {
       document.removeEventListener("pointerdown", onPointerDown);
       document.removeEventListener("keydown", onKeyDown);
+      root?.removeEventListener("focusout", onFocusOut);
     };
-  }, [schemeMenuOpen, closeMenu]);
+  }, [schemeMenuOpen, closeMenu, closeFromOutsidePointer]);
 
   // Move focus into the checked swatch when the popover opens (not a dialog).
   useEffect(() => {
@@ -160,8 +195,7 @@ export function ThemeControls() {
 
   const commitScheme = (id: ColorScheme) => {
     setColorScheme(id);
-    setSchemeMenuOpen(false);
-    triggerRef.current?.focus();
+    closeMenu({ restoreFocus: true });
   };
 
   const moveSchemeFocus = (next: number) => {
@@ -247,7 +281,7 @@ export function ThemeControls() {
   };
 
   return (
-    <div className="space-y-2.5 border-t border-[var(--border)] pt-3">
+    <div className="space-y-2.5">
       <div className="relative" ref={menuRef}>
         <div className="flex items-center justify-between gap-2">
           <p
@@ -277,12 +311,8 @@ export function ThemeControls() {
               aria-hidden
               className="h-3.5 w-3.5 shrink-0 rounded-full ring-1 ring-[var(--border)]"
               style={{
-                background:
-                  scheme === "spectrum"
-                    ? SCHEME_SWATCH.spectrum
-                    : undefined,
                 backgroundColor:
-                  scheme === "spectrum" ? undefined : SCHEME_SWATCH[scheme],
+                  scheme === "custom" ? customSeed : SCHEME_SWATCH[scheme],
               }}
             />
             <PaletteIcon />
@@ -293,7 +323,7 @@ export function ThemeControls() {
           aria-hidden={!schemeMenuOpen}
           className={[
             "absolute bottom-[calc(100%+0.4rem)] right-0 z-20 origin-bottom-right",
-            "rounded-lg border border-[var(--border)] bg-[var(--preview-bg)] p-2 shadow-[0_8px_24px_color-mix(in_srgb,var(--ink)_14%,transparent)]",
+            "rounded-xl border border-[var(--border)] bg-[var(--preview-bg)] p-2 shadow-[0_8px_24px_color-mix(in_srgb,var(--ink)_14%,transparent)]",
             "motion-safe:transition-[opacity,transform] motion-safe:duration-200 motion-safe:ease-out",
             schemeMenuOpen
               ? "pointer-events-auto translate-y-0 scale-100 opacity-100"
@@ -314,6 +344,7 @@ export function ThemeControls() {
                   schemeButtonRefs.current[index] = el;
                 }}
                 scheme={id}
+                customSeed={customSeed}
                 selected={scheme === id}
                 onSelect={() => commitScheme(id)}
                 onFocus={() => setSchemeFocusIndex(index)}
@@ -322,6 +353,32 @@ export function ThemeControls() {
                 }
               />
             ))}
+          </div>
+
+          {/*
+            Only the HUE of this color is used. Saturation and lightness are
+            solved against contrast targets in lib/customTheme.ts, so the theme
+            can't be driven below AA no matter what is picked — verified across
+            all 360 hues. The swatch shows the seed, not the derived accent, so
+            the control stays predictable while you drag.
+          */}
+          <div className="mt-2 border-t border-[var(--border)] pt-2">
+            <p className="mb-1 text-[10px] font-medium text-[var(--ink-muted)]">
+              Custom color
+            </p>
+            <HsvColorPicker
+              label="Custom theme"
+              value={customSeed}
+              tabIndex={schemeMenuOpen ? 0 : -1}
+              onChange={(hex) => {
+                setCustomSeed(hex);
+                if (scheme !== "custom") setColorScheme("custom");
+              }}
+              onCommit={(hex) => setCustomSeed(hex)}
+            />
+            <p className="mt-1 font-mono text-[10px] uppercase tabular-nums text-[var(--ink-muted)]">
+              {customSeed}
+            </p>
           </div>
         </div>
       </div>
@@ -380,14 +437,18 @@ const SchemeSwatch = forwardRef<
     onSelect: () => void;
     onFocus: () => void;
     tabIndex?: number;
+    /** Face color for the "custom" swatch; presets use their fixed swatch. */
+    customSeed: string;
   }
 >(function SchemeSwatch(
-  { scheme, selected, onSelect, onFocus, tabIndex },
+  { scheme, selected, onSelect, onFocus, tabIndex, customSeed },
   ref,
 ) {
-  const label = `${SCHEME_LABELS[scheme]} theme`;
-  const face = SCHEME_SWATCH[scheme];
-  const isSpectrum = scheme === "spectrum";
+  const label =
+    scheme === "custom"
+      ? "Custom theme color"
+      : `${SCHEME_LABELS[scheme]} theme`;
+  const face = scheme === "custom" ? customSeed : SCHEME_SWATCH[scheme];
 
   return (
     <button
@@ -407,10 +468,7 @@ const SchemeSwatch = forwardRef<
           ? "ring-2 ring-[var(--ink)] ring-offset-2 ring-offset-[var(--preview-bg)]"
           : "ring-1 ring-[var(--border)]",
       ].join(" ")}
-      style={{
-        background: isSpectrum ? face : undefined,
-        backgroundColor: isSpectrum ? undefined : face,
-      }}
+      style={{ backgroundColor: face }}
     >
       {selected ? <CheckIcon /> : null}
     </button>

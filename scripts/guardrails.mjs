@@ -24,6 +24,8 @@ const COLOR_EXEMPT_FILES = new Set([
   "app/opengraph-image.tsx",
 ]);
 
+const COMMENT_LINE = /^\s*(\/\/|\/\*|\*)/;
+
 const PALETTE =
   "white|black|slate|gray|zinc|neutral|stone|red|orange|amber|yellow|lime|green|emerald|teal|cyan|sky|blue|indigo|violet|purple|fuchsia|pink|rose";
 
@@ -44,6 +46,7 @@ const RULES = [
     test: (line) => /rgba?\(|hsla?\(|#[0-9a-fA-F]{3,8}\b/.test(line),
     allowAnnotation: "allow-color-literal",
     exemptFiles: COLOR_EXEMPT_FILES,
+    skipComments: true,
   },
   {
     id: "no-interpolated-ids",
@@ -61,22 +64,31 @@ function filesToCheck() {
   return [...seen].sort();
 }
 
-const COMMENT_LINE = /^\s*(\/\/|\/\*|\*)/;
-
 /**
- * True when the line itself, or any line in the contiguous comment block directly
- * above it, carries the annotation. Walking the whole block (rather than a fixed
- * lookback) means a multi-line justification works wherever the annotation sits
- * inside it — which is how people actually write these.
+ * True when the line itself, or the comment block introducing the statement it
+ * belongs to, carries the annotation.
+ *
+ * Walks upward past comment lines AND continuation lines, stopping at the first
+ * statement boundary. A fixed lookback or a comments-only walk both fail on
+ * wrapped expressions, where the justification sits above `const x =` or
+ * `backgroundImage:` rather than directly above the offending value — which is
+ * exactly where a formatter puts it.
  */
+const STATEMENT_END = /[;}]\s*$/;
+const MAX_LOOKBACK = 10;
+
 function isAnnotated(lines, index, annotation) {
   if (!annotation) return false;
   if (lines[index]?.includes(annotation)) return true;
 
-  for (let i = index - 1; i >= 0; i -= 1) {
+  for (let i = index - 1; i >= 0 && index - i <= MAX_LOOKBACK; i -= 1) {
     const line = lines[i];
-    if (line === undefined || !COMMENT_LINE.test(line)) break;
+    if (line === undefined) break;
     if (line.includes(annotation)) return true;
+    // Blank line or a completed statement means we've left this expression.
+    if (line.trim() === "" || (!COMMENT_LINE.test(line) && STATEMENT_END.test(line))) {
+      break;
+    }
   }
   return false;
 }
@@ -91,6 +103,9 @@ for (const file of filesToCheck()) {
 
     lines.forEach((line, index) => {
       if (!rule.test(line)) return;
+      // A hex code inside prose is documentation, not styling. Skipping comment
+      // lines also keeps the annotation mechanism from flagging its own reasons.
+      if (rule.skipComments && COMMENT_LINE.test(line)) return;
       if (isAnnotated(lines, index, rule.allowAnnotation)) return;
 
       failures += 1;

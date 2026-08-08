@@ -90,6 +90,7 @@ type Action =
   | { type: "SET_SEARCH_QUERY"; query: string }
   | { type: "SET_COLOR_SCHEME"; scheme: ColorScheme }
   | { type: "SET_THEME_MODE"; mode: ThemeMode }
+  | { type: "SET_CUSTOM_SEED"; seed: string }
   | { type: "SET_PREVIEW_COLOR"; color: string | null }
   | { type: "SET_PREVIEW_BG_COLOR"; color: string | null }
   | { type: "HYDRATE_PREFS"; prefs: LibraryPreferences };
@@ -300,6 +301,11 @@ function reducer(state: LibraryState, action: Action): LibraryState {
         ...state,
         theme: { ...state.theme, mode: action.mode },
       };
+    case "SET_CUSTOM_SEED":
+      return {
+        ...state,
+        theme: { ...state.theme, customSeed: action.seed.toLowerCase() },
+      };
     case "SET_PREVIEW_COLOR":
       return { ...state, previewColor: action.color };
     case "SET_PREVIEW_BG_COLOR":
@@ -362,6 +368,7 @@ type FontLibraryContextValue = {
   setSearchQuery: (query: string) => void;
   setColorScheme: (scheme: ColorScheme) => void;
   setThemeMode: (mode: ThemeMode) => void;
+  setCustomSeed: (seed: string) => void;
   setPreviewColor: (color: string | null) => void;
   setPreviewBgColor: (color: string | null) => void;
   /** Snapshot of persistable prefs (export). Never includes font bytes. */
@@ -696,6 +703,10 @@ export function FontLibraryProvider({
     dispatch({ type: "SET_THEME_MODE", mode });
   }, []);
 
+  const setCustomSeed = useCallback((seed: string) => {
+    dispatch({ type: "SET_CUSTOM_SEED", seed });
+  }, []);
+
   const setPreviewColor = useCallback((color: string | null) => {
     dispatch({ type: "SET_PREVIEW_COLOR", color });
   }, []);
@@ -744,6 +755,7 @@ export function FontLibraryProvider({
       setSearchQuery,
       setColorScheme,
       setThemeMode,
+      setCustomSeed,
       setPreviewColor,
       setPreviewBgColor,
       getPreferencesSnapshot,
@@ -774,6 +786,7 @@ export function FontLibraryProvider({
       setSearchQuery,
       setColorScheme,
       setThemeMode,
+      setCustomSeed,
       setPreviewColor,
       setPreviewBgColor,
       getPreferencesSnapshot,

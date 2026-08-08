@@ -10,7 +10,7 @@ import {
   useFontLibrary,
   type LibrarySection,
 } from "@/lib/FontLibraryContext";
-import { useMemo, useState } from "react";
+import { useId, useMemo, useState } from "react";
 
 function CategorySection({
   section,
@@ -22,6 +22,7 @@ function CategorySection({
   onToggle: () => void;
 }) {
   const { state, selectFamily, deleteCategory } = useFontLibrary();
+  const panelId = useId();
   const isEmpty = section.families.length === 0;
 
   // Hide empty builtin sections; keep Favorites + custom visible.
@@ -41,8 +42,9 @@ function CategorySection({
         <button
           type="button"
           onClick={onToggle}
-          className="flex min-w-0 flex-1 items-center justify-between px-1 py-2 text-left text-xs font-semibold uppercase tracking-wide text-[var(--ink-muted)]"
+          className="flex min-w-0 flex-1 items-center justify-between px-1 py-2 text-left text-xs font-semibold uppercase tracking-wide text-[var(--ink-muted)] outline-none focus-visible:ring-2 focus-visible:ring-[var(--ink)] focus-visible:ring-offset-1 focus-visible:ring-offset-[var(--surface)]"
           aria-expanded={open}
+          aria-controls={open ? panelId : undefined}
         >
           <span className="truncate">
             {section.kind === "favorites" ? "★ " : ""}
@@ -60,8 +62,13 @@ function CategorySection({
             type="button"
             title={`Delete category “${section.label}”`}
             aria-label={`Delete category ${section.label}`}
-            onClick={() => deleteCategory(section.label)}
-            className="shrink-0 px-1 text-[10px] text-[var(--ink-muted)] hover:text-[var(--warn-strong)]"
+            onClick={() => {
+              const ok = window.confirm(
+                `Delete category “${section.label}”? Fonts stay in the library.`,
+              );
+              if (ok) deleteCategory(section.label);
+            }}
+            className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded text-sm leading-none text-[var(--ink-muted)] outline-none hover:text-[var(--warn-strong)] focus-visible:ring-2 focus-visible:ring-[var(--ink)] focus-visible:ring-offset-1 focus-visible:ring-offset-[var(--surface)]"
           >
             ×
           </button>
@@ -69,13 +76,16 @@ function CategorySection({
       </div>
       {open ? (
         isEmpty ? (
-          <p className="mb-2 px-2 pb-1 text-[11px] text-[var(--ink-muted)]">
+          <p
+            id={panelId}
+            className="mb-2 px-2 pb-1 text-[11px] text-[var(--ink-muted)]"
+          >
             {section.kind === "favorites"
               ? "Star a family to pin it here."
               : "Assign fonts via the category menu on each row."}
           </p>
         ) : (
-          <ul className="mb-2 space-y-0.5">
+          <ul id={panelId} className="mb-2 space-y-0.5">
             {section.families.map((group) => (
               <li key={`${section.id}:${group.family}`}>
                 <FontFamilyListItem
@@ -109,6 +119,8 @@ export function FontLibrarySidebar() {
   const [newCategoryOpen, setNewCategoryOpen] = useState(false);
   const [newCategoryName, setNewCategoryName] = useState("");
   const [categoryError, setCategoryError] = useState<string | null>(null);
+  const newCategoryInputId = useId();
+  const newCategoryErrorId = useId();
 
   const isOpen = (id: string) => openSections[id] ?? true;
 
@@ -159,6 +171,7 @@ export function FontLibrarySidebar() {
         <label className="block">
           <span className="sr-only">Search fonts and categories</span>
           <input
+            id="font-search"
             type="search"
             value={state.searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
@@ -180,7 +193,14 @@ export function FontLibrarySidebar() {
           </button>
         ) : (
           <div className="space-y-1.5 rounded-md border border-[var(--border)] bg-[var(--preview-bg)] p-2">
+            <label
+              htmlFor={newCategoryInputId}
+              className="block text-[10px] font-semibold uppercase tracking-wide text-[var(--ink-muted)]"
+            >
+              Category name
+            </label>
             <input
+              id={newCategoryInputId}
               autoFocus
               type="text"
               value={newCategoryName}
@@ -199,12 +219,23 @@ export function FontLibrarySidebar() {
                   setCategoryError(null);
                 }
               }}
-              placeholder="Category name"
+              placeholder="e.g. Display"
+              aria-invalid={categoryError ? true : undefined}
+              aria-describedby={
+                categoryError ? newCategoryErrorId : undefined
+              }
               className="w-full rounded border border-[var(--border)] bg-[var(--surface)] px-2 py-1 text-sm text-[var(--ink)] outline-none focus:border-[var(--accent)] focus-visible:ring-2 focus-visible:ring-[var(--ink)] focus-visible:ring-offset-1 focus-visible:ring-offset-[var(--surface)]"
             />
-            {categoryError ? (
-              <p className="text-[10px] text-[var(--warn-strong)]">{categoryError}</p>
-            ) : null}
+            <div aria-live="polite" aria-atomic="true">
+              {categoryError ? (
+                <p
+                  id={newCategoryErrorId}
+                  className="text-[10px] text-[var(--warn-strong)]"
+                >
+                  {categoryError}
+                </p>
+              ) : null}
+            </div>
             <div className="flex gap-1.5">
               <button
                 type="button"
@@ -273,7 +304,22 @@ export function FontLibrarySidebar() {
         Skip past font list
       </a>
 
-      <div data-font-list className="min-h-0 flex-1 overflow-y-auto pr-1">
+      {/*
+        The max-height is load-bearing below md:. The page wrapper is only
+        `min-h-screen` there, so this list's `flex-1` has no definite parent
+        height to resolve against and `overflow-y-auto` never engages — the
+        sidebar would grow to full content height and push <main> off-screen
+        entirely. At ~200 families that is thousands of pixels of scrolling
+        before a touch user reaches the preview. Skip links cover keyboard
+        users; they do nothing for touch.
+
+        From md: up the wrapper is `h-screen`, so flex-1 bounds the list
+        correctly and the cap is removed.
+      */}
+      <div
+        data-font-list
+        className="max-h-[45vh] min-h-0 flex-1 overflow-y-auto rounded-lg border border-[var(--border)] bg-[var(--preview-bg)] p-1.5 md:max-h-none"
+      >
         {!hasFonts ? (
           <p className="px-1 py-6 text-center text-sm text-[var(--ink-muted)]">
             Your library is empty. Upload fonts to get started.

@@ -2,6 +2,7 @@ import { isHexColor } from "../colorContrast";
 import {
   DEFAULT_THEME,
   isColorScheme,
+  isHexSeed,
   isThemeMode,
   type ThemePreferences,
 } from "../theme";
@@ -24,9 +25,16 @@ function isStringRecord(value: unknown): value is Record<string, string> {
 function parseTheme(value: unknown): ThemePreferences {
   if (!value || typeof value !== "object") return { ...DEFAULT_THEME };
   const raw = value as Partial<ThemePreferences>;
+
+  // "spectrum" was the pre-custom multicolor scheme. Payloads written before it
+  // was replaced still name it; isColorScheme now rejects that, so those fall
+  // through to the default rather than leaving an unstyled data-scheme on <html>.
   return {
     scheme: isColorScheme(raw.scheme) ? raw.scheme : DEFAULT_THEME.scheme,
     mode: isThemeMode(raw.mode) ? raw.mode : DEFAULT_THEME.mode,
+    customSeed: isHexSeed(raw.customSeed)
+      ? raw.customSeed.toLowerCase()
+      : DEFAULT_THEME.customSeed,
   };
 }
 

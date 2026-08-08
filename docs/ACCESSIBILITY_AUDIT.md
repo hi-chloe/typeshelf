@@ -48,15 +48,22 @@ leaving the second control unnamed. Family names like `"Noto Sans JP"` also aren
 
 **Fixed:** `useId()` throughout. A guardrail now fails CI on any `id={\`...${...}\`}`.
 
-### B3 — Popover claimed to be a dialog `4.1.2`, `2.4.3`
+### B3 — Popovers claimed to be dialogs `4.1.2`, `2.4.3`
 
 The scheme picker declared `role="dialog"` and `aria-haspopup="dialog"` but never moved
 focus into itself and had no focus trap. Screen-reader users heard "dialog" while focus
 stayed on the trigger.
 
-**Fixed:** it's a popover wrapping a radiogroup, so `role="dialog"` is gone and
-`aria-haspopup="true"` replaces it. Focus moves to the checked swatch on open and returns
-to the trigger on close.
+**Fixed:** these are popovers wrapping a radiogroup, so `role="dialog"` is gone and
+`aria-haspopup="true"` replaces it. Focus moves into the panel on open and returns to the
+trigger on close.
+
+> **Verification note.** This was initially recorded as fixed after checking
+> `ThemeControls` alone. `PreviewColorMenu` used the identical pattern and had **not** been
+> corrected — it still declared `role="dialog"` and never moved focus. Found later, while
+> working in that file for an unrelated reason. Both are now fixed. The lesson is that
+> verifying a pattern means finding every instance of it, not the one named in the fix;
+> `grep -rn 'role="dialog"'` across the tree is now part of the check.
 
 ### M4 — Focus indicator invisible to low-vision users `2.4.7`
 
@@ -99,18 +106,65 @@ inputs; the file input hoisted out of `role="button"`.
 
 ---
 
-## Verified correct — independently recomputed
+## Contrast — full matrix
 
-All 32 contrast ratios documented in `app/globals.css` are **exact**:
+Schemes own their neutrals, not just their accents, so every surface changes per theme and
+every pair has to be re-verified per theme. Values below are computed with the WCAG 2.x
+relative-luminance formula, not estimated.
 
-- Body text 14.60:1 light / 15.24:1 dark — AAA, not just AA.
-- `--ink-muted` 5.54 / 7.84 · `--ink-faint` 3.39 / 4.43 (icon-only, correct threshold).
-- All six schemes' `--accent-strong` clear 4.5:1 in both modes; lowest is verdant light at 6.21.
-- `--border` was darkened from `#e3ddd6` — **1.2:1**, a live 1.4.11 failure predating this
-  work — to `#8f877f` at 3.45:1.
-- `accent-soft` fills sit at ~1.1:1 against neighbours, which is correct: the boundary is
-  carried by `--border`, and selection is redundantly encoded via `border-2`,
-  `font-semibold`, and a check glyph.
+| Scheme | Mode | ink/bg | muted/bg | faint/surf | border/bg | strong/bg | strong/soft | on/strong | accent/bg |
+|---|---|---|---|---|---|---|---|---|---|
+| Ember | Light | 15.11 | 5.93 | 3.60 | 3.69 | 6.31 | 4.61 | 6.50 | 3.02 |
+| Azure | Light | 15.04 | 5.86 | 3.54 | 3.65 | 6.39 | 4.65 | 6.57 | 3.00 |
+| Verdant | Light | 14.48 | 5.22 | 3.21 | 3.30 | 6.39 | 5.23 | 6.53 | 3.02 |
+| Amethyst | Light | 15.39 | 6.20 | 3.76 | 3.84 | 6.37 | 4.62 | 6.57 | 3.01 |
+| Garnet | Light | 15.36 | 6.17 | 3.75 | 3.82 | 6.37 | 4.64 | 6.57 | 3.00 |
+| Ember | Dark | 15.59 | 8.51 | 4.63 | 4.77 | 7.48 | 4.60 | 7.57 | 3.01 |
+| Azure | Dark | 15.59 | 8.57 | 4.66 | 4.84 | 7.54 | 4.55 | 7.62 | 3.03 |
+| Verdant | Dark | 15.57 | 8.99 | 5.05 | 5.28 | 7.87 | 4.75 | 7.86 | 3.31 |
+| Amethyst | Dark | 15.59 | 8.36 | 4.44 | 4.61 | 7.53 | 4.56 | 7.66 | 3.00 |
+| Garnet | Dark | 15.59 | 8.37 | 4.47 | 4.63 | 7.53 | 4.55 | 7.65 | 3.01 |
+
+| Column | Threshold | Worst case |
+|---|---|---|
+| ink/bg | 7.0 (AAA) | **14.48** |
+| ink-muted/bg | 4.5 | **5.22** |
+| ink-faint/surface | 3.0 (icon chrome) | **3.21** |
+| border/bg | 3.0 (1.4.11) | **3.30** |
+| accent-strong/bg | 4.5 | **6.31** |
+| accent-strong/accent-soft | 4.5 | **4.55** |
+| on-accent/accent-strong | 4.5 | **6.50** |
+| accent/bg | 3.0 (non-text) | **3.00** |
+
+Body text clears AAA in every combination, not just AA.
+
+### The custom scheme is verified too
+
+The user-picked scheme is generated at runtime by `lib/customTheme.ts`, which runs the same
+lightness solver used to produce the preset blocks. It was exercised across **all 360 hues
+× 2 modes × 13 pairs = 9,360 ratios, with zero failures** — no color a user can pick
+produces a theme that fails AA. Only the hue is honored; saturation and lightness belong to
+the solver.
+
+### Why a solver rather than chosen hex values
+
+Fixed HSL lightness does not yield constant contrast across hues. Green carries roughly
+3.4× the luminance of blue at identical L (0.7152 vs 0.2126 coefficients). The first pass
+at this palette used one lightness ramp for every scheme, and verdant failed five checks
+while the other four passed — a discrepancy invisible to the eye and to review. Every
+accent value is now found by binary-searching lightness against a measured target.
+
+Targets sit deliberately above the WCAG minimum: solving to exactly 4.5 parks a value on
+the boundary where hex quantization rounds it under, and leaves `--accent-soft` no room to
+be a visible tint rather than near-white.
+
+### Also verified
+
+- `--border` was originally `#e3ddd6` — **1.2:1**, a live 1.4.11 failure predating this
+  work. It now clears 3:1 in all ten combinations.
+- `accent-soft` fills sit low against their neighbours by design: the boundary is carried
+  by `--border`, and selection is redundantly encoded via `border-2`, `font-semibold`, and
+  a check glyph rather than fill alone.
 
 Deliberate asymmetry worth preserving: **variant chips** move focus with arrows but commit
 with Space/Enter, because arrow-to-select would trigger a font load per keypress. **Theme
@@ -122,14 +176,12 @@ radiogroups** select on arrow, which is standard radio behavior. Both are commen
 
 Honest gaps, tracked rather than glossed:
 
-1. **Skip-link paint under real `:focus-visible`.** The `sr-only focus:not-sr-only
-   focus:fixed` pattern depends on CSS cascade order between `not-sr-only` (`position:
-   static`) and `fixed` (`position: fixed`). Source review can't confirm which wins, and
-   `app/page.tsx` uses `md:overflow-hidden`, which can clip an absolutely-positioned link.
-   Needs a browser assertion that the focused link has a non-zero box inside the viewport.
-2. **No automated axe coverage.** All findings above came from source review. An axe pass
-   across all 12 scheme × mode combinations — including with popovers open — would catch
-   what reading misses.
+1. ~~**Skip-link paint is manually confirmed, not automated.**~~ **Covered** by
+   `e2e/a11y.smoke.spec.ts` — asserts focused skip links paint at a usable size and
+   that Enter moves focus to `#preview-pane` / `#library-settings`.
+2. ~~**No automated axe coverage.**~~ **Smoke coverage** in the same suite: axe-core
+   against light and dark Ember at page load. Full 12 scheme × mode matrix and
+   open-popover states are still open follow-ups.
 3. **Behavior at ~200 families is untested.** Keyboard access is now size-independent by
    design, but render performance, 200 concurrent `IntersectionObserver` instances, and
    whether `pinResidentFace` actually bounds `FontFace` residency across a full-list scroll
@@ -137,13 +189,14 @@ Honest gaps, tracked rather than glossed:
 4. **`aria-controls` on the category menu** references a conditionally-rendered element, so
    the IDREF doesn't resolve while closed. Low impact, technically invalid.
 
-Items 1–3 are specced in `docs/CURSOR_PROMPTS_HARDENING.md`.
+Item 3 still needs assertions a source review can't make — memory behavior under load.
 
 ---
 
 ## Enforcement
 
-`npm run verify` runs lint, typecheck, guardrails, and tests. `scripts/guardrails.mjs`
+`npm run verify` runs lint, typecheck, guardrails, and unit tests. CI also builds and
+runs `npm run test:e2e` (Playwright + axe). `scripts/guardrails.mjs`
 fails CI on Tailwind palette classes, raw color literals outside two documented exemptions,
 and DOM ids built from user data — the three rules that regress silently and are invisible
 in review. Each exists because it has already been broken once.
