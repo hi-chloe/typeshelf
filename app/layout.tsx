@@ -1,3 +1,4 @@
+import { Analytics } from "@vercel/analytics/next";
 import { Providers } from "@/components/Providers";
 import {
   LEGACY_PREFS_KEYS,
@@ -88,6 +89,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
           Skip to settings
         </a>
         <Providers>{children}</Providers>
+        <Analytics />
       </body>
     </html>
   );
